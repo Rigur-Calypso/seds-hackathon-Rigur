@@ -1,0 +1,7 @@
+bin/
+build/
+*.log
+replays/
+profiles.json
+.DS_Store
+.env
