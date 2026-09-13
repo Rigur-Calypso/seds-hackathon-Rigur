@@ -58,7 +58,7 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []boar
 				moves[opps[k].Idx] = opps[k].Dirs[idx[k]]
 				w *= opps[k].W[idx[k]]
 			}
-			next := rules.Resolve(s, moves, rules.Options{Shrink: rules.ShrinkKeep})
+			next := rules.Resolve(s, moves, opt)
 			buf = append(buf, outcome{eval.Score(s, next, p), w})
 			if err := ctx.Err(); err != nil {
 				return out, err
