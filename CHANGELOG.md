@@ -41,3 +41,10 @@ Live service https://seds-hackathon-rigur.onrender.com (version a6410b1), measur
 
 Change: `cpuCapMs` 220 → 50 in all profiles (test enforces ≤ 60); `X-Snake-Decision` response
 header (reason, depth, budget, compute time). Arena baselines unchanged (deterministic mode).
+
+## improve-003 — grand-final search stops at the proven depth
+
+Live headers after improve-002: 19×19 1v1 always reaches `duel depth=4`, but compute was 56–137 ms
+against a 50 ms budget because starting depth 5 exhausts the CPU quota (throttling). Depth 4 is
+the arena-proven useful depth (beats TVAE 55–45 head-to-head); deeper was never shown to help.
+Change: `config/duel.json` `duelMaxDepth` 6 → 4.

@@ -12,5 +12,5 @@
   "wShrinkRobust": 0.4,
   "wHazardWeapon": 0.4,
   "duelEnabled": true,
-  "duelMaxDepth": 6
+  "duelMaxDepth": 4
 }
