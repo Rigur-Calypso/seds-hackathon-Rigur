@@ -64,3 +64,19 @@ is withdrawn. Corrected re-run with the flag really applied:
   10 → 12, starvation 5 → 8 → **not promoted** (union of four rings is too passive); default stays off
 - royale 19×19 1v1, 100 paired games: identical (duel search decides almost every 1v1 move)
 Replacement planned: four explicit shrink worlds combined by stage risk posture.
+
+## improve-005 — arena and validation upgrades (no bot behaviour change)
+
+- Arena settings as flags: `--food-spawn --min-food --hazard-damage --shrink --map --max-turns
+  --tie-break length|draw`, passed to both the official engine and the request the bot parses.
+- `--grid` comparisons across settings with the worst cell reported; placement scoring extracted
+  and tested; paired results carry 95 % bootstrap confidence intervals.
+- `--diagnose` / `--examples` decision-level loss classification in the repo; `--duel-depth` also
+  lowers `duelMinDepth`.
+- Adversarial opponents `pincer`, `foodbait`, `edgeherder`, `stormtrapper` (`--opponents
+  adversarial|full`); the original `zoo` rotation is unchanged.
+- Fuzz tests `FuzzParse`, `FuzzDecide`; property tests for duplicated tails and safe moves.
+
+Measured: default qualifying 500 games 8.768 pts / 84.0 % (identical); `--diagnose` 80 losses,
+0 avoidable, 57 sealed 1–3 turns earlier; adversarial zoo qualifying 9.22 pts / 90.3 %, royale
+8.88 pts / 85.3 % (not harder than the zoo — self-play remains the strongest test).
