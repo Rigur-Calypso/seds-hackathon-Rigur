@@ -1,5 +1,11 @@
-// Package search glues the evaluators into decide.Evaluator: duel search when
-// exactly two snakes live (and the profile enables it), otherwise TVAE.
+// Package search glues the evaluators into decide.Evaluator.
+//
+// TVAE always runs first: it costs well under a millisecond and always
+// completes, so a valid evaluated move exists before any deep search starts.
+// When exactly two snakes live and the profile enables it, duel search then
+// uses the remaining time, and its move replaces TVAE's only if it completed at
+// least DuelMinDepth (arena, 19×19 head-to-head: depth-3 search loses to TVAE,
+// depth 4 beats it). On a slow CPU this degrades to TVAE, never to fallback.
 package search
 
 import (
@@ -22,19 +28,8 @@ func round3(v float64) float64 {
 
 // Evaluate implements decide.Evaluator.
 func Evaluate(ctx context.Context, s *board.State, p *config.Params, safe []board.Dir) (board.Dir, decide.Decision, error) {
-	var info decide.Decision
-	if p.DuelEnabled && s.AliveCount() == 2 {
-		dir, depth, scores, err := duel.Search(ctx, s, p, safe)
-		if err == nil {
-			info.Reason, info.Depth = decide.ReasonDuel, depth
-			for _, rs := range scores {
-				info.Scores = append(info.Scores, decide.Score{Move: rs.Dir.String(), Value: round3(rs.Value)})
-			}
-			return dir, info, nil
-		}
-	}
+	info := decide.Decision{Reason: decide.ReasonEvaluated}
 	cands, err := envelope.Evaluate(ctx, s, p, safe)
-	info.Reason = decide.ReasonEvaluated
 	for _, c := range cands {
 		info.Scores = append(info.Scores, decide.Score{Move: c.Dir.String(), Value: round3(c.Score)})
 	}
@@ -47,5 +42,19 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, safe []boar
 			best = i
 		}
 	}
-	return cands[best].Dir, info, nil
+	move := cands[best].Dir
+
+	if p.DuelEnabled && s.AliveCount() == 2 {
+		dir, depth, scores, derr := duel.Search(ctx, s, p, safe)
+		info.Depth = depth
+		if derr == nil && depth >= p.DuelMinDepth {
+			info.Reason = decide.ReasonDuel
+			info.Scores = info.Scores[:0]
+			for _, rs := range scores {
+				info.Scores = append(info.Scores, decide.Score{Move: rs.Dir.String(), Value: round3(rs.Value)})
+			}
+			return dir, info, nil
+		}
+	}
+	return move, info, nil
 }

@@ -156,4 +156,11 @@ func TestBudget(t *testing.T) {
 	if b := Budget(100, &p, 1, 0); b != time.Duration(p.MinBudgetMs)*time.Millisecond {
 		t.Fatalf("floor: %v", b)
 	}
+	// Review finding: the floor must never push the deadline past a tiny timeout.
+	if b := Budget(1, &p, 1, 0); b > time.Millisecond {
+		t.Fatalf("timeout=1 must not get a %v budget", b)
+	}
+	if b := Budget(30, &p, 1, 0); b > 15*time.Millisecond {
+		t.Fatalf("timeout=30 budget %v exceeds half the timeout", b)
+	}
 }

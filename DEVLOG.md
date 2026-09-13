@@ -18,6 +18,9 @@ the owner. Newest material is appended at the end of each section.
 | 06:30 | First full build; vet caught an import cycle in tests (fixed) |
 | 06:34 | Four real CLI games (standard, royale 11×11, royale 19×19, constrictor) against the built server: all completed, zero WARN lines |
 | 06:40 | Arena module + differential test written; constrictor clash diagnosed and fixed (§4.14) |
+| 06:50 | PR #1 merged after green CI; `known-good` tagged (7305594) |
+| 06:55–07:25 | Per-stage arena baselines, loss-bucket diagnosis, 9 paired experiments (§7), Copilot review triage (§5.5) |
+| 07:25 | TVAE-first depth-gated duel search promoted; slow-CPU emulation and a 763-turn 19×19 CLI game verified; PR #2 |
 
 Because only ~2h45m remained before freeze when work began, the plan's "one step per branch,
 human verifies each gate" cadence was compressed (see §3.1). Every gate that can be measured on
@@ -151,6 +154,14 @@ profile, so identical seeds give identical games (null test = exactly zero diffe
     decision at start so the first real `/move` pays no first-use cost.
 16. **Metamorphic tests at three levels**: resolver, Voronoi (rotation, reflection, opponent
     permutation), and TVAE candidate scores.
+17. **TVAE-first, depth-gated duel search (`duelMinDepth`).** Measured that paranoid duel search
+    is worse than TVAE at depth 3 and better at depth 4 on 19×19 (§7 #8–#9). Since Render's
+    fractional CPU may not reach depth 4, TVAE always runs first and the duel move is only used
+    when depth ≥ 4 completed; `Decide` keeps a completed evaluator move even if the deadline
+    expired during the optional deeper search.
+18. **Loss-bucket diagnosis from fatal boards** (`arena --dump-losses`) and **automated review
+    triage** (§5.5): every reviewer finding was checked against the code and either fixed, A/B
+    tested, or rejected with a reason.
 
 ---
 
@@ -179,8 +190,71 @@ our snake: 3 502 moves served, **0 WARN**, reasons: duel 1 793, tvae 1 217, fall
 completed but safe-only moves), forced 236, no_legal 3. Latency p50 1 ms, p95 148 ms, p99 222 ms
 (duel iterative deepening uses the full 220 ms cap by design).
 
-### 5.4 Arena
-(filled in below as runs complete)
+### 5.4 Arena baselines (deterministic, official rules in-process, zoo opponents, M3)
+
+| Stage configuration | Games | Result | Timeouts | p99 decision | Wall |
+|---|---|---|---|---|---|
+| Qualifying: standard 11×11, 4 snakes | 500 | **8.77 pts/game, 84.0 % first** | 0 | 13.3 ms | 18.3 s (gate < 60 s ✅) |
+| Bracket: royale 11×11, 4 snakes | 300 | **8.84 pts/game, 85.0 % wins** | 0 | 42.3 ms | 22.1 s |
+| Final: royale 19×19, 1v1 (duel depth 3) | 100 | 93 % wins (never died; losses are length at the turn cap) | 0 | 13 ms | 10.8 s |
+| Solo royale 11×11 | 100 | mean survival 434 turns (gate: > 150) | 0 | 2.3 ms | 1.7 s |
+| Constrictor 11×11, 4 snakes (side event) | 100 | 7.33 pts/game, 52 % wins; self-collision is the top loss bucket | 0 | 25.7 ms | 0.6 s |
+| Qualifying, wall-clock `--budget 150 --concurrency 4` | 100 | 8.90 pts/game, 86 % | **0** | 10.1 ms (max 35) | 7.0 s |
+
+Loss buckets (DIAGNOSE step): qualifying 80 losses → head-to-head 46 (57 %), starvation 17,
+body 10, self 7. Royale 45 losses → head-to-head 30 (67 %), hazard 9, starvation 5, self 1.
+Reading the head-to-head fatal boards (`--dump-losses`): three of four are "sandwiches" — our
+snake running down a corridor between two longer snakes into a wall until every exit is a
+losing head-to-head; the fourth is a snake still length 4 at turn 123.
+
+Null test (`TestNullTestDeterministic`): paired difference exactly 0 ✅.
+
+### 5.5 Copilot review of PR #1 (automated) — triage
+
+| Finding | Verdict | Action |
+|---|---|---|
+| CI licence check passes silently if `go list` fails (no `pipefail`) | Valid | Query into a variable first so failure is fatal |
+| `MinBudgetMs` floor can exceed a tiny `game.timeout` | Valid | Floor capped at half the timeout; test for `timeout=1` and `30` |
+| TVAE keeps the old ring on shrink turns | Partly valid (shrink-robustness term already uses the union of all four outcomes) | Added `envelopeShrinkPessimistic` and A/B-tested it (#4 below): zero effect, default off |
+| Arena uses stale state when `Execute` reports game over | Not a bug: the engine's game-over stage runs before movement, and the loop breaks at ≤ 1 alive before calling `Execute` | None |
+
+---
+
+## 7. Optimisation loop log
+
+Gate (OPTIMIZATION_LOOP Part 2): paired seeds `42,5,725,1337,99`, common random numbers, one
+change per experiment against the shipped champion, promote only on a significant effect (p < 0.05)
+of meaningful size with zero timeouts.
+
+| # | Hypothesis (one change) | Stage | Games | Effect (B − A) | p | Decision |
+|---|---|---|---|---|---|---|
+| 1 | Stronger growth drive (`wFood` .35→.7, `lengthLead` 2→4, `foodDecayTurns` 250→400) cuts head-to-head + starvation losses | qualifying | 500 paired | +0.156 pts, +1.8 pp; h2h 46→37, starve 17→12, self 7→11 | 0.35 | **Reject** (not significant, < +0.4) |
+| 2 | `wNoSafeExit` 0.6→1.5 avoids sandwiches | qualifying | 500 | −0.048 pts | 0.41 | **Reject** |
+| 3 | `ensUniform` 0.5→1.5 so opponents' risky moves weigh more in the CVaR tail | qualifying | 500 | −0.076 pts; h2h 46→57 | 0.41 | **Reject** |
+| 4 | `envelopeShrinkPessimistic` (review finding) | bracket | 300 | 0.000 — all 300 games identical | 1.0 | **No effect**; option kept, default off |
+| 5 | Duel search off in qualifying (TVAE handles 1v1 endgames) | qualifying | 500 | −0.072 pts, −1.8 pp | **0.0065** | **Reject** — duel search helps on 11×11 |
+| 6 | Duel search off in the bracket | bracket | 300 | −0.213 pts, −5.3 pp | **0.0003** | **Reject** — duel search clearly helps on 11×11 |
+| 7 | Duel search off for the 19×19 final (vs zoo, duel depth 3) | final | 100 | TVAE-only 98 % vs 93 % | 0.058 | Inconclusive → head-to-head |
+| 8 | Head-to-head 19×19: TVAE-only (seat 0) vs duel search **depth 3** | final | 200 | TVAE-only wins **58.5 %** | ≈ 0.02 | Depth-3 paranoid search is worse than TVAE |
+| 9 | Head-to-head 19×19: TVAE-only vs duel search **depth 4** | final | 200 | TVAE-only wins **45 %** | ≈ 0.16 | Depth-4 search is better than TVAE |
+
+**Promoted from #5–#9 — `duelMinDepth` (original idea, §4.17).** The value of duel search flips
+between depth 3 and 4. Depth 4 on 19×19 costs ~18 ms on the M3; on Render's ≈0.1 CPU the
+iterative deepening will often stop at depth 3 — exactly the regime where it loses to TVAE.
+`search.Evaluate` now runs TVAE first (always completes, < 1 ms), then duel search in the remaining
+time, and plays the duel move only if depth ≥ `duelMinDepth` = 4. Otherwise it plays the TVAE move.
+`decide.Decide` was changed to trust a completed evaluator result even if the deadline passed a
+moment later (previously a finished TVAE move would have been discarded for the fallback).
+In the deterministic arena this is identical to the measured champion (depth 4 always
+completes), so all stage baselines above still apply; on a slow CPU it degrades to TVAE instead of
+to shallow, measurably worse search.
+
+### 5.6 Verification of the promoted change (improve-001)
+
+- Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.
+- Differential test still 2 877 turns identical; null test still exactly zero.
+- Slow-CPU emulation: 19×19 1v1 at `--budget 20` wall-clock, 60 games vs zoo → 100 % wins, **0 timeouts**, p99 21.5 ms.
+- Real CLI game, royale 19×19, two copies of the snake, 763 turns: **0 WARN**; 1 047 moves `duel` depth 6, 349 depth 5, 1 depth 4, 2 moves where search did not reach depth 4 and the TVAE move was played instead of the fallback; latency p50 83 ms, p99 221 ms (budget cap).
 
 ---
 

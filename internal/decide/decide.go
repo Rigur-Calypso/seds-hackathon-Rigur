@@ -107,13 +107,12 @@ func (e *Engine) Decide(ctx context.Context, gs *api.GameState) (d Decision) {
 			break
 		}
 	}
+	// The evaluator owns deadline handling: it returns an error only if it could
+	// not produce a complete answer. A result that completed just as the deadline
+	// passed (e.g. TVAE done, duel search cut short) is still the better move.
 	move, info, err := e.Eval(ctx, s, p, safe)
-	if err != nil || ctx.Err() != nil {
-		if err != nil {
-			d.Err = err.Error()
-		} else {
-			d.Err = ctx.Err().Error()
-		}
+	if err != nil {
+		d.Err = err.Error()
 		d.Scores, d.Depth = info.Scores, info.Depth
 		return d
 	}
