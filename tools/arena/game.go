@@ -46,6 +46,24 @@ func (e enginePolicy) Decide(gs *api.GameState) decide.Decision {
 
 func (e enginePolicy) Move(gs *api.GameState) string { return e.Decide(gs).Move }
 
+// EndGame drops the engine's per-game state, as the server's /end does.
+func (e enginePolicy) EndGame(gameID string) { e.eng.EndGame(gameID) }
+
+// ender is a policy holding per-game state (the engine's opponent learners).
+type ender interface {
+	EndGame(gameID string)
+}
+
+// endGame stands in for /end, which the arena never sends: without it every
+// simulated game would leave its learner models behind until age pruning.
+func endGame(seats []Seat, gameID string) {
+	for _, s := range seats {
+		if e, ok := s.Policy.(ender); ok {
+			e.EndGame(gameID)
+		}
+	}
+}
+
 // Seat is one snake in a game.
 type Seat struct {
 	Name   string
@@ -109,6 +127,7 @@ func playGame(cfg *Config, seed int64, seats []Seat) (GameResult, error) {
 		return res, err
 	}
 	gameID := fmt.Sprintf("arena-%s-%d", cfg.Rules, seed)
+	defer endGame(seats, gameID)
 	timeout := time.Duration(cfg.TimeoutMs) * time.Millisecond
 	var lastYou *api.GameState
 	var trace []decisionRec
