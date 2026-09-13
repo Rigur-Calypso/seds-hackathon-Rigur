@@ -5,7 +5,8 @@
 // When exactly two snakes live and the profile enables it, duel search then
 // uses the remaining time, and its move replaces TVAE's only if it completed at
 // least DuelMinDepth (arena, 19×19 head-to-head: depth-3 search loses to TVAE,
-// depth 4 beats it). On a slow CPU this degrades to TVAE, never to fallback.
+// depth 4 beats it) — or if it proved a forced win at any depth, which is exact
+// within the search model. On a slow CPU this degrades to TVAE, never to fallback.
 package search
 
 import (
@@ -17,6 +18,7 @@ import (
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/decide"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/duel"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/envelope"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/eval"
 )
 
 func round3(v float64) float64 {
@@ -47,7 +49,8 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, safe []boar
 	if p.DuelEnabled && s.AliveCount() == 2 {
 		dir, depth, scores, derr := duel.Search(ctx, s, p, safe)
 		info.Depth = depth
-		if derr == nil && depth >= p.DuelMinDepth {
+		provenWin := len(scores) > 0 && eval.IsWin(scores[0].Value)
+		if derr == nil && (depth >= p.DuelMinDepth || provenWin) {
 			info.Reason = decide.ReasonDuel
 			info.Scores = info.Scores[:0]
 			for _, rs := range scores {

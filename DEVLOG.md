@@ -444,8 +444,9 @@ Re-measuring baselines at 08:44: qualifying is identical to before PR #2 (8.768 
 bracket moved from 8.84 pts / 85.0 % to 8.827 / 84.7 % (about one game in 300). The arena is
 deterministic, so behaviour changed. Hypothesis: when duel search proves a win before depth 4 it
 stops early, and the `duelMinDepth` gate then discards the proven winning move for the TVAE move.
-Planned fix: a proven win is always played; a proven loss still defers to TVAE (which picks the
-most robust line). To be confirmed with a paired bracket run.
+Fix shipped in improve-006: a proven win is always played; a proven loss still defers to TVAE.
+**Result: the hypothesis was falsified** — the fix changed 36 of 900 paired games (all ended sooner or
+later with identical outcomes) and did not restore the bracket figure. See §10.6.
 
 ### 10.4 Implementation order
 
@@ -453,7 +454,7 @@ most robust line). To be confirmed with a paired bracket run.
 2. ✅ improve-005 — arena: parameters (food spawn, minimum food, hazard damage, shrink cadence, map,
    turn cap, tie-break), bootstrap confidence intervals, `--diagnose`, adversarial zoo (pincer,
    food-bait, edge-herder, storm-trapper), `--duel-depth` also lowers `duelMinDepth`; fuzz tests
-3. improve-006 — proven duel wins bypass the depth gate (§10.3)
+3. ✅ improve-006 — proven duel wins bypass the depth gate (§10.3, §10.6)
 4. improve-007 — **P1 Threat Graph** (selective second ply)
 5. improve-008 — **P3 food-race certificates**
 6. improve-009 — **P2 opponent adaptation** + threat-preserving pruning
@@ -504,3 +505,25 @@ Notes:
   (`--opponents champion`) pools.
 - The shrink-15 grid cell costs 0.9 pts/game against shrink 25: the event's royale settings matter,
   which is why robust tuning (step 10) runs across a grid rather than one assumed cadence.
+
+### 10.6 improve-006 — proven duel wins bypass the depth gate
+
+Test first: `TestProvenWinBypassesDepthGate` puts our length-5 snake next to a cornered length-3
+snake whose only exit is the cell we can enter, so duel search proves the win at depth 1. It failed
+on the old code (`reason=tvae depth=1`) and passes after the fix: `search.Evaluate` plays the duel
+move when depth ≥ `duelMinDepth` **or** the best root value is a proven win.
+
+`arena --results FILE` was added so two binaries built before and after a code change (a fix, not a
+tunable, so there is no profile flag to pair on) can be compared game by game on identical seeds.
+
+| Run (same seeds, before vs after) | Games | Points / wins | Games changed | Of those, ended sooner | Outcome or death cause changed |
+|---|---|---|---|---|---|
+| Bracket royale 11×11 | 300 | identical (8.827, 84.7 %) | 20 | 19 (155 → 150 turns) | 0 |
+| Qualifying 11×11 | 500 | identical (8.768, 84.0 %) | 10 | 8 (224 → 217 turns) | 0 |
+| Final 19×19 1v1, depth 4 | 100 | identical (9.84, 96 %) | 6 | 6 (182 → 138 turns) | 0 |
+
+Conclusion: forced wins are now converted immediately — fewer turns exposed to randomness and
+latency — with no outcome regressions. The §10.3 hypothesis is **falsified**: this was not the cause
+of the 8.84 → 8.827 bracket change. The remaining suspect, proven shallow losses now playing the TVAE
+move instead of search's "lose as late as possible" move, is worth about one game in 300 and was not
+pursued.

@@ -45,6 +45,27 @@ func TestDuelUsedOnlyAtMinDepth(t *testing.T) {
 	}
 }
 
+// Regression (DEVLOG §10.3): duel search stops early once it proves a win.
+// A proven forced win is exact within the search model, so it must be played
+// even when it was found below duelMinDepth. Here our longer snake takes the
+// cornered opponent's only exit: a head-to-head it wins (R2).
+func TestProvenWinBypassesDepthGate(t *testing.T) {
+	s, ok := board.FromAPI(fixture.MustState(`size 11 11
+you 100 2,0 3,0 4,0 5,0 6,0
+snake cornered 100 0,0 0,1 0,2
+food 9,9`))
+	if !ok {
+		t.Fatal("you not found")
+	}
+	safe := legal.Safe(s, 0)
+	p := config.Defaults()
+	p.DuelEnabled, p.DuelMaxDepth, p.DuelMinDepth = true, 4, 4
+	move, info, err := Evaluate(context.Background(), s, &p, safe)
+	if err != nil || info.Reason != decide.ReasonDuel || info.Depth != 1 || move != board.Left {
+		t.Fatalf("proven win must be played: move=%v reason=%s depth=%d err=%v", move, info.Reason, info.Depth, err)
+	}
+}
+
 // A deadline that cuts the duel search short must yield the TVAE move, not an error.
 func TestShortDeadlineKeepsTVAEMove(t *testing.T) {
 	s := duelState(t)
