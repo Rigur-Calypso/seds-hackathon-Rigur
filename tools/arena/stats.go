@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"math/rand"
 	"sort"
 	"time"
 )
@@ -110,4 +111,30 @@ func regIncBeta(a, b, x float64) float64 {
 		}
 	}
 	return front * (f - 1) / a
+}
+
+// bootstrapCI is the 95% percentile bootstrap interval of the mean of paired
+// differences, from a fixed seed so every report is reproducible. It does not
+// assume normality, which placement points (10/6/3/1) badly violate.
+func bootstrapCI(diffs []float64, resamples int, seed int64) [2]float64 {
+	n := len(diffs)
+	if n == 0 || resamples <= 0 {
+		return [2]float64{}
+	}
+	rng := rand.New(rand.NewSource(seed))
+	means := make([]float64, resamples)
+	for r := range means {
+		sum := 0.0
+		for i := 0; i < n; i++ {
+			sum += diffs[rng.Intn(n)]
+		}
+		means[r] = sum / float64(n)
+	}
+	sort.Float64s(means)
+	lo := int(0.025 * float64(resamples))
+	hi := int(math.Ceil(0.975*float64(resamples))) - 1
+	if hi >= resamples {
+		hi = resamples - 1
+	}
+	return [2]float64{means[lo], means[hi]}
 }

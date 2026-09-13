@@ -450,7 +450,7 @@ most robust line). To be confirmed with a paired bracket run.
 ### 10.4 Implementation order
 
 1. ✅ improve-004 — storm-option defect, test first
-2. improve-005 — arena: parameters (food spawn, minimum food, hazard damage, shrink cadence, map,
+2. ✅ improve-005 — arena: parameters (food spawn, minimum food, hazard damage, shrink cadence, map,
    turn cap, tie-break), bootstrap confidence intervals, `--diagnose`, adversarial zoo (pincer,
    food-bait, edge-herder, storm-trapper), `--duel-depth` also lowers `duelMinDepth`; fuzz tests
 3. improve-006 — proven duel wins bypass the depth gate (§10.3)
@@ -464,3 +464,43 @@ most robust line). To be confirmed with a paired bracket run.
 
 Every behaviour change ships behind a config flag that defaults off, is enabled only after a paired
 arena gate with bootstrap confidence intervals, and is checked live through `X-Snake-Decision`.
+
+### 10.5 improve-005 — arena and validation upgrades (no bot behaviour change)
+
+What was added:
+- **Every game setting is a flag** — `--food-spawn`, `--min-food`, `--hazard-damage`, `--shrink`,
+  `--map`, `--max-turns`, `--tie-break length|draw` — and the same values reach both the official
+  engine and the request our bot parses (`TestConfigReachesEngineAndRequest`,
+  `TestShrinkCadenceChangesTheGame`).
+- **`--grid "shrink=15,25;food-spawn=10,25"`** runs a comparison in every combination and reports
+  the worst cell, so a change that helps on average but hurts in a plausible event setting is
+  visible. Placement scoring moved into `placements()` with a tie-break test.
+- **Bootstrap confidence intervals** (95 %, fixed seed, reproducible) next to every paired t-test.
+- **`--diagnose`** (the decision-level classification from §9.1) and `--examples N` are in the repo.
+- **`--duel-depth`** also lowers `duelMinDepth`; before, `--duel-depth 3` silently disabled duel search.
+- **Adversarial zoo**: `pincer`, `foodbait`, `edgeherder`, `stormtrapper` (`--opponents
+  adversarial` or `full`); the original `zoo` rotation is untouched so earlier baselines compare.
+- **Fuzz tests** `FuzzParse` (normalisation invariants) and `FuzzDecide` (valid move, no panic,
+  bounded time) with seed corpora from real payloads and fixtures, run in CI; **property tests**:
+  a duplicated tail never vacates, and a safe uncontested move never dies by wall, self-collision,
+  starvation or hazard.
+
+Measured:
+
+| Check | Result |
+|---|---|
+| Default qualifying, 500 games | 8.768 pts / 84.0 % — identical to before, so the parameterisation changes nothing by default |
+| `--diagnose` qualifying, 500 games | 80 losses; fatal move avoidable 0; last real choice 1–3 turns before death 57 (71 %), 4–10 turns 21, > 10 turns 2; evaluator saw it coming 0 |
+| Adversarial zoo, qualifying, 300 games | 9.22 pts / 90.3 % |
+| Adversarial zoo, royale, 300 games | 8.88 pts / 85.3 % |
+| Grid smoke, identical A and B, royale shrink 15 vs 25, 40 games each | difference 0, CI [0, 0] in both cells; baseline 8.15 pts at shrink 15 vs 9.05 at 25 |
+
+Notes:
+- The scratch harness in §9.1 (turn cap 500, copied game loop) reported 84 losses with 59 sealed
+  within three turns; the in-repo `--diagnose` on the real arena loop (cap 600) reports 80 and 57.
+  Same conclusion; the in-repo numbers are authoritative from here on.
+- The scripted adversaries are **not harder** than the original zoo in aggregate. The strongest
+  opponent available remains our own engine, so P1–P3 are gated on both the zoo and self-play
+  (`--opponents champion`) pools.
+- The shrink-15 grid cell costs 0.9 pts/game against shrink 25: the event's royale settings matter,
+  which is why robust tuning (step 10) runs across a grid rather than one assumed cadence.

@@ -172,8 +172,8 @@ func TestResolverMatchesOfficialRules(t *testing.T) {
 // Step 5 gate: the arena is deterministic, so the null test (champion vs an
 // identical copy on paired seeds) must show no difference at all.
 func TestNullTestDeterministic(t *testing.T) {
-	cfg := Config{Rules: "standard", Width: 11, Height: 11, Snakes: 4, Games: 12, Seeds: []int64{42, 5, 725}, Opponents: "zoo",
-		TimeoutMs: 500, Concurrency: 4, MaxTurns: 200, DuelDepth: 2}
+	cfg := defaultConfig()
+	cfg.Games, cfg.Seeds, cfg.Concurrency, cfg.MaxTurns, cfg.DuelDepth = 12, []int64{42, 5, 725}, 4, 200, 2
 	eng, err := loadEngine(&cfg, "")
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ func TestNullTestDeterministic(t *testing.T) {
 	jobs := buildJobs(&cfg)
 	a, _ := runAll(&cfg, eng, eng, jobs)
 	b, _ := runAll(&cfg, eng, eng, jobs)
-	p := paired(a, b)
+	p := paired(a, b, 200)
 	if p.MeanDiffPoints != 0 || p.Significant {
 		t.Fatalf("null test failed: %+v", p)
 	}
