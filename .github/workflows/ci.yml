@@ -20,7 +20,9 @@ jobs:
         run: go build -o app ./cmd/server
       - name: licence boundary (CLAUDE.md §8) — server must not link AGPL rules
         run: |
-          if go list -deps ./cmd/server | grep -q BattlesnakeOfficial; then
+          # Query first so a failing `go list` fails the job instead of silently passing the grep.
+          deps="$(go list -deps ./cmd/server)"
+          if printf '%s\n' "$deps" | grep -q BattlesnakeOfficial; then
             echo "cmd/server imports BattlesnakeOfficial/rules (AGPL)"; exit 1
           fi
       - name: arena + differential tests (separate module)

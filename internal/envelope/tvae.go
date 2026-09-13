@@ -42,6 +42,10 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []boar
 	idx := make([]int, len(opps))
 	buf := make([]outcome, 0, 64)
 	out := make([]Candidate, 0, len(dirs))
+	opt := rules.Options{Shrink: rules.ShrinkKeep}
+	if p.EnvelopeShrinkPessimistic {
+		opt.Shrink = rules.ShrinkPessimistic
+	}
 	for _, m := range dirs {
 		moves[0] = m
 		buf = buf[:0]

@@ -33,8 +33,17 @@ func Budget(timeoutMs int, p *config.Params, inflight, overheadMs int) time.Dura
 	if inflight > 1 {
 		b = b * 2 / (inflight + 1)
 	}
-	if b < p.MinBudgetMs {
-		b = p.MinBudgetMs
+	// The floor keeps a useful minimum search, but never above half the request
+	// timeout: with a tiny timeout the precomputed fallback is the answer.
+	floor := p.MinBudgetMs
+	if half := timeoutMs / 2; half < floor {
+		floor = half
+	}
+	if b < floor {
+		b = floor
+	}
+	if b < 1 {
+		b = 1
 	}
 	return time.Duration(b) * time.Millisecond
 }

@@ -29,6 +29,9 @@ type Params struct {
 	RiskCVaR       float64 `json:"riskCVaR"`
 	RiskMin        float64 `json:"riskMin"`
 	CVaRAlpha      float64 `json:"cvarAlpha"`
+	// EnvelopeShrinkPessimistic: on a royale shrink turn, outcomes carry the union
+	// of all four possible next rings instead of the current ring (R8).
+	EnvelopeShrinkPessimistic bool `json:"envelopeShrinkPessimistic"`
 
 	// Opponent ensemble mixture (advisory weights only; all legal actions stay).
 	EnsSpace   float64 `json:"ensSpace"`
@@ -67,8 +70,12 @@ type Params struct {
 	WHazardWeapon   float64 `json:"wHazardWeapon"`
 
 	// Duel search (exactly two snakes alive).
-	DuelEnabled  bool    `json:"duelEnabled"`
-	DuelMaxDepth int     `json:"duelMaxDepth"`
+	DuelEnabled  bool `json:"duelEnabled"`
+	DuelMaxDepth int  `json:"duelMaxDepth"`
+	// DuelMinDepth: the duel result replaces the TVAE move only if search
+	// completed at least this depth. Measured on 19×19: depth-3 paranoid search
+	// loses to TVAE head-to-head (41.5%), depth 4 beats it (55%).
+	DuelMinDepth int     `json:"duelMinDepth"`
 	PlyStep      float64 `json:"plyStep"` // terminal ordering: win sooner / lose later
 }
 
@@ -123,6 +130,7 @@ func Defaults() Params {
 
 		DuelEnabled:  false,
 		DuelMaxDepth: 4,
+		DuelMinDepth: 4,
 		PlyStep:      0.01,
 	}
 }
