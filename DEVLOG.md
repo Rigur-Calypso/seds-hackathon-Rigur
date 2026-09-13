@@ -293,6 +293,24 @@ deterministic mode ignores wall-clock caps, so the §5 baselines are unchanged.
 (`reason=… depth=… budget_ms=… compute_ms=… inflight=…`). Clients ignore unknown headers; it lets
 anyone check the live snake's behaviour with `curl -D -` without Render dashboard access.
 
+### 8.3 Post-deploy verification of improve-002 (live `aa762f4`, deployed 18 s after merge)
+
+Six requests per payload at the default `timeout: 500`, read from the new header:
+
+| Payload | Total round trip | `X-Snake-Decision` |
+|---|---|---|
+| 4-snake 11×11 royale | 110–119 ms | `reason=tvae`, compute 0 ms |
+| 1v1 11×11 royale | 118–131 ms | `reason=duel depth=4`, compute 6–12 ms |
+| 1v1 19×19 royale | 254–377 ms (was 376–516 ms) | `reason=duel depth=4`, **compute 56–137 ms against a 50 ms budget** |
+
+19×19 always completes depth 4, which is the depth the arena showed beats TVAE (§7 #9). The
+overshoot above the 50 ms budget comes from starting depth 5 with the leftover budget: that extra
+burn exhausts the CPU quota and the process is throttled until the next quota period. Depth 5+
+was never shown to help (the arena's 19×19 measurements used depth 3 and 4).
+
+**Change (improve-003).** `config/duel.json` `duelMaxDepth` 6 → 4, so the grand-final search
+stops as soon as the proven-useful depth completes. 11×11 profiles were already at 4.
+
 ### 5.6 Verification of the promoted change (improve-001)
 
 - Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.
