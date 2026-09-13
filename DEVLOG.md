@@ -329,6 +329,45 @@ of each game.
 Tuning stopped here, ~40 minutes before feature freeze: every further change needs a deploy plus
 live re-measurement, and the remaining risk is operational (keep-warm, registration), not code.
 
+---
+
+## 9. Improvement research (08:10–08:35) — proposals only, bot unchanged
+
+Owner registered the snake and played a practice game; the hackathon was extended by 1 h and the
+owner asked for a proposal document (additions only) to approve before any change.
+
+### 9.1 Loss diagnostics
+A scratch harness (outside the repo; copies the arena game loop and zoo) replayed games with the
+official rules and, for every decision of our snake, recorded safe / non-losing-head-to-head /
+viable (not a dead end) option counts and the evaluator's best score. Per loss it records whether a
+viable option existed at the fatal decision and the turns since the last decision with ≥ 2 viable
+options.
+
+| Run | Games | Losses | Fatal move avoidable | Last real choice ≤ 3 turns | Evaluator saw it coming |
+|---|---|---|---|---|---|
+| qualifying vs zoo | 500 | 84 | 0 | 59 | 0 |
+| royale vs zoo | 300 | 46 | 0 | 35 | 0 |
+| qualifying vs 3 champions | 200 | 137 | 0 | 80 | 3 |
+| constrictor, standard map | 100 | 52 | 0 | 3 | 0 |
+| constrictor, `hz_scatter` | 100 | 49 | 0 | 2 | 0 |
+| constrictor, `hz_scatter`, storm penalties off | 100 | 49 | 0 | 2 | 0 |
+| royale 19×19 1v1 vs champion (depth 4) | 100 | 0 | — | — | — (every game reached the 400-turn cap) |
+
+Loss causes: qualifying head-to-head 45, starvation 19, body 13, self 7; royale head-to-head 31,
+storm 9, starvation 5, body 1; self-play head-to-head 83, self 33, body 19, starvation 2;
+constrictor self 38, body 13, head-to-head 1.
+
+### 9.2 Hosting facts checked on the web
+- Hugging Face Spaces: new free accounts can no longer run Docker/compute Spaces on free CPU
+  (change rolled out June–August 2026, per the HF community forum thread "Official Community
+  Complaint: Revert Free CPU Basic Spaces…"). Dropped.
+- GitHub Codespaces: 120 core-hours/month on Free plans, public port forwarding allowed, idle
+  timeout default 30 min and reset by terminal output (GitHub Docs). Kept as a research option.
+
+### 9.3 Output
+`docs/IMPROVEMENT_PROPOSALS.md` (11 proposals, 3 tiers, gates, estimates, recommended order) and an
+approval page. Nothing in the bot was changed; the proposals PR is left open for the owner.
+
 ### 5.6 Verification of the promoted change (improve-001)
 
 - Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.
