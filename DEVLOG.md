@@ -19,8 +19,9 @@ the owner. Newest material is appended at the end of each section.
 | 06:34 | Four real CLI games (standard, royale 11×11, royale 19×19, constrictor) against the built server: all completed, zero WARN lines |
 | 06:40 | Arena module + differential test written; constrictor clash diagnosed and fixed (§4.14) |
 | 06:50 | PR #1 merged after green CI; `known-good` tagged (7305594) |
-| 06:55–07:25 | Per-stage arena baselines, loss-bucket diagnosis, 9 paired experiments (§7), Copilot review triage (§5.5) |
-| 07:25 | TVAE-first depth-gated duel search promoted; slow-CPU emulation and a 763-turn 19×19 CLI game verified; PR #2 |
+| 06:52–07:08 | Per-stage arena baselines, loss-bucket diagnosis, 9 paired experiments (§7), Copilot review triage (§5.5) |
+| 07:10 | TVAE-first depth-gated duel search promoted; slow-CPU emulation and a 763-turn 19×19 CLI game verified |
+| 07:12 | PR #2 merged after green CI; `known-good` moved to 9e3f3a3. Handover: NEXT_STEPS.md lists the owner-only tasks |
 
 Because only ~2h45m remained before freeze when work began, the plan's "one step per branch,
 human verifies each gate" cadence was compressed (see §3.1). Every gate that can be measured on
