@@ -48,3 +48,6 @@ Live headers after improve-002: 19×19 1v1 always reaches `duel depth=4`, but co
 against a 50 ms budget because starting depth 5 exhausts the CPU quota (throttling). Depth 4 is
 the arena-proven useful depth (beats TVAE 55–45 head-to-head); deeper was never shown to help.
 Change: `config/duel.json` `duelMaxDepth` 6 → 4.
+
+Measured after deploy (live b9a95ac): 19×19 1v1 `/move` 140–272 ms; real 19×19 CLI game on the
+live URL (455 turns): p50 190, p99 307, max 414 ms, 0 failed requests.

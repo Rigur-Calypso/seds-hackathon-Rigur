@@ -311,6 +311,24 @@ was never shown to help (the arena's 19×19 measurements used depth 3 and 4).
 **Change (improve-003).** `config/duel.json` `duelMaxDepth` 6 → 4, so the grand-final search
 stops as soon as the proven-useful depth completes. 11×11 profiles were already at 4.
 
+### 8.4 Post-deploy verification of improve-003 (live `b9a95ac`, deployed 19 s after merge)
+
+| Scenario (live, from India) | Result |
+|---|---|
+| 8 × `/move` 19×19 1v1 at `timeout: 500` | total **140–272 ms** (was 254–377 after improve-002, 376–516 before); 7 × `duel depth=4` with compute 13–98 ms, 1 × `tvae depth=3` (search too shallow → TVAE move, as designed) |
+| **Real CLI game, royale 19×19, both snakes on the live URL** (455 turns, 2 concurrent requests per turn) | 907 latency samples: **p50 190, p90 214, p99 307, max 414 ms; 0 failed requests**; 2 samples ≥ 400 ms |
+| Earlier real CLI game, standard 11×11, 4 snakes on the live URL | 1 093 samples: p50 82, p99 137, max 215 ms; 0 failed |
+
+Latency history for the grand-final scenario (19×19 1v1, measured from India):
+220 ms cap, depth 6 → up to 516 ms · 50 ms cap, depth 6 → up to 377 ms · 50 ms cap, depth 4 →
+p99 307 ms over a full game. The remaining tail (0.2 % of moves ≥ 400 ms) is network plus
+occasional throttling; if the tournament engine is farther away than India→Singapore, watch the
+`overhead_ms` field — the adaptive margin shrinks the budget automatically after the first moves
+of each game.
+
+Tuning stopped here, ~40 minutes before feature freeze: every further change needs a deploy plus
+live re-measurement, and the remaining risk is operational (keep-warm, registration), not code.
+
 ### 5.6 Verification of the promoted change (improve-001)
 
 - Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.

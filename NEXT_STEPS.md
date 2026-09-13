@@ -11,6 +11,12 @@ Feature freeze ≈ 08:45. Tournament after the build window closes.
 > ✅ **Render is live** at https://seds-hackathon-rigur.onrender.com — verified 07:55 IST
 > (version matched `known-good`; a real 4-snake CLI game against it: p99 137 ms, 0 failures).
 > Steps 1–2 are done; continue from step 3.
+>
+> ✅ **Tuned for Render's CPU** (08:04, version `b9a95ac` = `known-good`): real games against the
+> live URL — 4 snakes 11×11: p99 137 ms; 1v1 19×19 (grand-final shape, 455 turns): p50 190 ms,
+> p99 307 ms, 0 failed requests. Check what the live snake is doing any time with:
+> `curl -s -D - -o /dev/null -X POST -H 'Content-Type: application/json' --data @testdata/payloads/royale19_cli_turn.json https://seds-hackathon-rigur.onrender.com/move`
+> and read the `X-Snake-Decision` header.
 
 1. **Render** (skip if already connected): render.com → New → Web Service → pick
    `seds-hackathon-Rigur` → Runtime **Go** → Build `go build -o app ./cmd/server` → Start `./app`
@@ -27,6 +33,9 @@ Feature freeze ≈ 08:45. Tournament after the build window closes.
    gh workflow run keepwarm
    ```
    Then uptimerobot.com → New monitor → HTTP(s) → your URL → every 5 minutes.
+   > Status 08:05: `SNAKE_URL` secret is set and a manual keepwarm run succeeded (07:27). No
+   > *scheduled* runs have appeared yet — GitHub cron often starts late — so the UptimeRobot
+   > monitor is the one to rely on. Check with `gh run list --workflow keepwarm.yml`.
 5. **play.battlesnake.com** → Create snake → paste the URL → run one practice game against
    yourself. In Render → Logs you should see `start`, then `move` lines with `"reason":"tvae"`.
 6. **Backup**: koyeb.com → create one free service from the same repo, same build/start
