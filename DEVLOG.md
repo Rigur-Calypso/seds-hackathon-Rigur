@@ -250,6 +250,49 @@ In the deterministic arena this is identical to the measured champion (depth 4 a
 completes), so all stage baselines above still apply; on a slow CPU it degrades to TVAE instead of
 to shallow, measurably worse search.
 
+---
+
+## 8. Live deployment verification (Render free tier)
+
+Owner deployed at **https://seds-hackathon-rigur.onrender.com** (~07:50). All measurements below
+were taken from the dev Mac in India against the live service.
+
+### 8.1 Deployment identity
+`GET /` → 200 in 130–260 ms, `"version":"a6410b1"` = `known-good` = `origin/main`. Garbage body to
+`/move` → 200 `{"move":"up"}`.
+
+### 8.2 Latency of the live snake
+| Scenario | Samples | Total round trip |
+|---|---|---|
+| `GET /` (no compute) | 3 | 134–260 ms (network ≈ 115 ms) |
+| `/move` 4-snake 11×11 royale (TVAE) | 10 | 117–257 ms |
+| **Real CLI game, 4 snakes all on the live URL (4 concurrent requests/turn)** | 1 093 | **p50 82, p90 93, p99 137, max 215 ms; 0 failed** |
+| 4 concurrent 11×11 requests | 4 | 109–240 ms |
+| `/move` 19×19 1v1 (duel search), budget 220 ms | 9 | **376–516 ms** ❌ |
+| same, budget 120 ms | 4 | 290–492 ms ❌ |
+| same, budget 70 ms | 4 | 185–388 ms |
+| same, budgets 25 / 35 / 40 / 50 / 60 ms | 8 each | p50 185 / 203 / 186 / 183 / 193 ms; max 281 / 456 / 277 / 264 / 278 ms |
+| `/move` 11×11 1v1 (duel search), budgets 25 / 50 / 80 / 120 / 220 ms | 8 each | p50 125 / 124 / 122 / 122 / 125 ms; max 134 / 134 / 254 / 135 / 137 ms — search finishes depth 4 before any cap binds |
+
+(Budgets set per request through `game.timeout`, since budget = timeout − 180 ms margin, so no
+redeploy was needed to sweep them.)
+
+**Finding.** TVAE (all 4-snake play) is safe on the live instance. Duel search runs until its
+deadline, and on Render's fractional CPU quota a long burn triggers throttling stalls of up to
+~300 ms beyond the budget. At the shipped 220 ms cap a 19×19 1v1 move already reached 516 ms from
+India, which is a timeout, before counting the (unknown) distance to the tournament engine. At
+≤ 60 ms budgets the median halves (~185 ms). The occasional ~450 ms outlier appears at all
+budgets, including requests with almost no compute, so it is proxy/network noise, not search.
+
+**Change (improve-002).** `cpuCapMs: 50` in all four shipped profiles, with a test that fails if a
+profile goes above 60. TVAE needs well under 1 ms, so only the optional duel search is shortened;
+the `duelMinDepth` gate (§7) ensures a too-shallow search plays the TVAE move instead. The arena's
+deterministic mode ignores wall-clock caps, so the §5 baselines are unchanged.
+
+**Observability.** `/move` now returns an `X-Snake-Decision` header
+(`reason=… depth=… budget_ms=… compute_ms=… inflight=…`). Clients ignore unknown headers; it lets
+anyone check the live snake's behaviour with `curl -D -` without Render dashboard access.
+
 ### 5.6 Verification of the promoted change (improve-001)
 
 - Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.

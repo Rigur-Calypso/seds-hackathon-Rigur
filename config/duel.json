@@ -1,5 +1,6 @@
 {
   "name": "duel",
+  "cpuCapMs": 50,
   "riskMean": 0.2,
   "riskCVaR": 0.3,
   "riskMin": 0.5,

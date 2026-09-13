@@ -142,6 +142,32 @@ func TestConcurrentGames(t *testing.T) {
 	}
 }
 
+func TestDecisionHeader(t *testing.T) {
+	ts := testServer(t)
+	res, err := http.Post(ts.URL+"/move", "application/json", strings.NewReader(fmt.Sprintf(good, "hdr", 3)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	h := res.Header.Get("X-Snake-Decision")
+	if !strings.Contains(h, "reason=") || !strings.Contains(h, "depth=") || !strings.Contains(h, "compute_ms=") {
+		t.Fatalf("missing decision header: %q", h)
+	}
+}
+
+// Shipped profiles cap compute at the value measured safe on Render's free tier.
+func TestShippedCPUCap(t *testing.T) {
+	ps, err := config.Load(seds.ConfigFS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range config.Names {
+		if got := ps.Get(n).CPUCapMs; got > 60 {
+			t.Fatalf("profile %s cpuCapMs=%d; live Render measurements show stalls above ~60 ms", n, got)
+		}
+	}
+}
+
 func TestBudget(t *testing.T) {
 	p := config.Defaults()
 	if b := Budget(500, &p, 1, 0); b != 220*time.Millisecond {

@@ -8,6 +8,10 @@ Feature freeze ≈ 08:45. Tournament after the build window closes.
 
 ## A. Get it live (≈15 min) — do this first
 
+> ✅ **Render is live** at https://seds-hackathon-rigur.onrender.com — verified 07:55 IST
+> (version matched `known-good`; a real 4-snake CLI game against it: p99 137 ms, 0 failures).
+> Steps 1–2 are done; continue from step 3.
+
 1. **Render** (skip if already connected): render.com → New → Web Service → pick
    `seds-hackathon-Rigur` → Runtime **Go** → Build `go build -o app ./cmd/server` → Start `./app`
    → Instance **Free** → Region **Singapore** → Auto-deploy **on**.

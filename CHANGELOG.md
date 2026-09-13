@@ -31,3 +31,13 @@ Experiments (full table in DEVLOG §7):
 
 Fixes: CI licence check fails closed; budget floor never exceeds half of game.timeout; Decide
 keeps a completed evaluator move when the deadline expires during optional deeper search.
+
+## improve-002 — Render CPU cap from live measurements, decision header
+
+Live service https://seds-hackathon-rigur.onrender.com (version a6410b1), measured from India:
+- 4-snake CLI game on the live URL: 1 093 moves, p50 82 ms, p99 137 ms, max 215 ms, 0 failures
+- 19×19 1v1 duel search at the 220 ms cap: 376–516 ms total (throttling stalls) → timeout risk
+- 19×19 at 25–60 ms budgets: p50 ~185 ms; 11×11 1v1 at any budget: p50 ~124 ms (depth 4 finishes early)
+
+Change: `cpuCapMs` 220 → 50 in all profiles (test enforces ≤ 60); `X-Snake-Decision` response
+header (reason, depth, budget, compute time). Arena baselines unchanged (deterministic mode).
