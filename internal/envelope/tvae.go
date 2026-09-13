@@ -33,7 +33,7 @@ type outcome struct{ v, w float64 }
 // Evaluate scores every move in dirs. On ctx expiry it returns the candidates
 // completed so far and ctx's error.
 func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []board.Dir) ([]Candidate, error) {
-	opps := opponent.Choices(s, p)
+	opps := opponent.Choices(s, p, opponent.ModelFrom(ctx))
 	Reduce(opps, p)
 
 	moves := make([]board.Dir, len(s.Snakes))
@@ -99,23 +99,28 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []boar
 // Reduce applies locality masking (bookworm / m-schier idea): opponents farther
 // than LocalityRadius are forced to their most likely move, then the farthest
 // remaining are collapsed until the joint count fits MaxJoint.
+// With ThreatPreservingPrune a collapsed opponent keeps its moves near our head,
+// so an opponent can be collapsed at most once (it may still have several moves).
 func Reduce(opps []opponent.Choice, p *config.Params) {
+	done := make([]bool, len(opps))
 	for k := range opps {
 		if opps[k].Dist > p.LocalityRadius {
-			collapse(&opps[k])
+			collapse(&opps[k], p)
+			done[k] = true
 		}
 	}
 	for p.MaxJoint > 0 && joint(opps) > p.MaxJoint {
 		far := -1
 		for k := range opps {
-			if len(opps[k].Dirs) > 1 && (far < 0 || opps[k].Dist > opps[far].Dist) {
+			if !done[k] && len(opps[k].Dirs) > 1 && (far < 0 || opps[k].Dist > opps[far].Dist) {
 				far = k
 			}
 		}
 		if far < 0 {
 			return
 		}
-		collapse(&opps[far])
+		collapse(&opps[far], p)
+		done[far] = true
 	}
 }
 
@@ -127,13 +132,39 @@ func joint(opps []opponent.Choice) int {
 	return n
 }
 
-func collapse(c *opponent.Choice) {
+func collapse(c *opponent.Choice, p *config.Params) {
 	best := 0
 	for i := range c.W {
 		if c.W[i] > c.W[best] {
 			best = i
 		}
 	}
-	c.Dirs = []board.Dir{c.Dirs[best]}
-	c.W = []float64{1}
+	if !p.ThreatPreservingPrune || len(c.Near) != len(c.Dirs) {
+		c.Dirs = []board.Dir{c.Dirs[best]}
+		c.W = []float64{1}
+		c.Near = nil
+		return
+	}
+	// Threat-preserving pruning (P2): the most likely move plus every move that
+	// lands near our head stays in the envelope, reweighted among themselves.
+	dirs := make([]board.Dir, 0, len(c.Dirs))
+	w := make([]float64, 0, len(c.Dirs))
+	near := make([]bool, 0, len(c.Dirs))
+	sum := 0.0
+	for i := range c.Dirs {
+		if i == best || c.Near[i] {
+			dirs = append(dirs, c.Dirs[i])
+			w = append(w, c.W[i])
+			near = append(near, c.Near[i])
+			sum += c.W[i]
+		}
+	}
+	for i := range w {
+		if sum > 0 {
+			w[i] /= sum
+		} else {
+			w[i] = 1 / float64(len(w))
+		}
+	}
+	c.Dirs, c.W, c.Near = dirs, w, near
 }

@@ -13,11 +13,16 @@ type Choice struct {
 	Dirs []board.Dir
 	W    []float64
 	Dist int // distance from our head
+	// Near[k]: Dirs[k] lands within PruneKeepRadius of our head, so it can reach
+	// or block one of our next cells (threat-preserving pruning keeps it).
+	Near []bool
 }
 
 // Choices lists each live opponent's safe actions with ensemble weights from
 // four cheap policies: survival-space, food-seeking, aggression, uniform.
-func Choices(s *board.State, p *config.Params) []Choice {
+// A non-nil model (P2) personalises the mixture per opponent; nil keeps the
+// profile mixture exactly.
+func Choices(s *board.State, p *config.Params, m *Model) []Choice {
 	blocked := legal.Blocked(s)
 	food := legal.FoodDistances(s, blocked)
 	me := &s.Snakes[0]
@@ -31,11 +36,19 @@ func Choices(s *board.State, p *config.Params) []Choice {
 		if len(dirs) == 0 {
 			dirs = []board.Dir{legal.DefaultMove(sn)} // doomed; one move suffices
 		}
+		near := make([]bool, len(dirs))
+		for k, d := range dirs {
+			if q, ok := s.Step(sn.Head(), d); ok {
+				// Within 2 of our head covers every cell adjacent to one of our next cells.
+				near[k] = s.Dist(q, me.Head()) <= p.PruneKeepRadius
+			}
+		}
 		out = append(out, Choice{
 			Idx:  j,
 			Dirs: dirs,
-			W:    weights(s, blocked, food, j, dirs, me, p),
+			W:    weights(s, blocked, food, j, dirs, me, p, m),
 			Dist: s.Dist(sn.Head(), me.Head()),
+			Near: near,
 		})
 	}
 	return out
@@ -57,7 +70,7 @@ func normalize(v []float64) {
 	}
 }
 
-func weights(s *board.State, blocked []bool, food []int32, j int, dirs []board.Dir, me *board.Snake, p *config.Params) []float64 {
+func weights(s *board.State, blocked []bool, food []int32, j int, dirs []board.Dir, me *board.Snake, p *config.Params, m *Model) []float64 {
 	n := len(dirs)
 	w := make([]float64, n)
 	if n == 1 {
@@ -83,9 +96,25 @@ func weights(s *board.State, blocked []bool, food []int32, j int, dirs []board.D
 	normalize(space)
 	normalize(hungry)
 	normalize(aggro)
+	a := [numPolicies]float64{p.EnsSpace, p.EnsFood, p.EnsAggro, p.EnsUniform}
+	slow := false
+	if m != nil {
+		a, slow = m.mixture(sn.ID, p)
+	}
+	straight := legal.DefaultMove(sn)
 	for k := range w {
-		w[k] = p.EnsSpace*space[k] + p.EnsFood*hungry[k] + p.EnsAggro*aggro[k] + p.EnsUniform/float64(n)
+		w[k] = a[polSpace]*space[k] + a[polFood]*hungry[k] + a[polAggro]*aggro[k] + a[polUniform]/float64(n)
+		if slow && dirs[k] == straight {
+			w[k] += p.LearnSlowWeight // likely timeout: the engine repeats its last move
+		}
 	}
 	normalize(w)
+	if m != nil {
+		uniform := make([]float64, n)
+		for k := range uniform {
+			uniform[k] = 1 / float64(n)
+		}
+		m.record(sn.ID, s.Turn, sn.Head(), dirs, [numPolicies][]float64{space, hungry, aggro, uniform})
+	}
 	return w
 }

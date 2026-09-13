@@ -171,6 +171,7 @@ func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g := s.games.End(gs.Game.ID)
+	s.eng.EndGame(gs.Game.ID) // P2: drop this game's opponent learners
 	alive := false
 	for _, sn := range gs.Board.Snakes {
 		if sn.ID == gs.You.ID {

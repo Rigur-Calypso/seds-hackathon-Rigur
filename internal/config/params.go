@@ -49,6 +49,19 @@ type Params struct {
 	EnsAggro   float64 `json:"ensAggro"`
 	EnsUniform float64 `json:"ensUniform"`
 
+	// P2 in-game opponent adaptation: a per-opponent posterior over the ensemble
+	// policies, learned from observed moves. Reweights only; never prunes.
+	LearnOpponents  bool    `json:"learnOpponents"`
+	LearnEps        float64 `json:"learnEps"`        // likelihood floor in w_k ← w_k·(ε + P_k(actual))
+	LearnMaxStep    float64 `json:"learnMaxStep"`    // fraction of each Bayes update applied per turn
+	LearnMinObs     int     `json:"learnMinObs"`     // observations before the posterior fully replaces the profile mixture
+	LearnSlowFrac   float64 `json:"learnSlowFrac"`   // opponent latency ≥ this fraction of game.timeout marks a likely timeout (R11)
+	LearnSlowWeight float64 `json:"learnSlowWeight"` // extra weight on "continue straight" for a likely timeout
+	// Threat-preserving pruning: an opponent collapsed to one move still keeps
+	// every move landing within PruneKeepRadius of our head.
+	ThreatPreservingPrune bool `json:"threatPreservingPrune"`
+	PruneKeepRadius       int  `json:"pruneKeepRadius"`
+
 	// Evaluation. The heuristic sum is squashed with tanh into (-1, 1).
 	ContestedWeight   float64 `json:"contestedWeight"`
 	AttackCellWeight  float64 `json:"attackCellWeight"` // contested cells where we are the strictly-longest arriver (R2: we win the collision)
@@ -116,6 +129,15 @@ func Defaults() Params {
 		EnsFood:    1,
 		EnsAggro:   0.5,
 		EnsUniform: 0.5,
+
+		LearnOpponents:        false,
+		LearnEps:              0.05,
+		LearnMaxStep:          0.5,
+		LearnMinObs:           8,
+		LearnSlowFrac:         0.8,
+		LearnSlowWeight:       1,
+		ThreatPreservingPrune: false,
+		PruneKeepRadius:       2,
 
 		ContestedWeight:   0.5,
 		AttackCellWeight:  0.85,

@@ -11,6 +11,7 @@ import (
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/config"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/fallback"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/legal"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/opponent"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/stage"
 )
 
@@ -47,10 +48,12 @@ type Decision struct {
 // Evaluator picks among safe moves. It must honour ctx cooperatively.
 type Evaluator func(ctx context.Context, s *board.State, p *config.Params, safe []board.Dir) (board.Dir, Decision, error)
 
-// Engine holds immutable configuration; safe for concurrent use.
+// Engine holds immutable configuration plus the mutex-guarded opponent learner
+// store (P2); safe for concurrent use.
 type Engine struct {
 	Profiles *config.Profiles
 	Eval     Evaluator
+	Models   *opponent.Models // nil disables learning
 }
 
 // New builds an engine. A nil evaluator means fallback-only.
@@ -58,7 +61,14 @@ func New(p *config.Profiles, eval Evaluator) *Engine {
 	if p == nil {
 		p = config.DefaultProfiles()
 	}
-	return &Engine{Profiles: p, Eval: eval}
+	return &Engine{Profiles: p, Eval: eval, Models: opponent.NewModels()}
+}
+
+// EndGame drops every per-game learner of a game (/end).
+func (e *Engine) EndGame(gameID string) {
+	if e.Models != nil {
+		e.Models.End(gameID)
+	}
 }
 
 // Decide never panics and always returns one of the four move strings. The
@@ -87,6 +97,14 @@ func (e *Engine) Decide(ctx context.Context, gs *api.GameState) (d Decision) {
 	}
 	fb := fallback.Best(s) // ALWAYS first
 	d.Move, d.Reason = fb.String(), ReasonFallback
+
+	// P2: fold last turn's opponent moves into this game's learner before
+	// evaluating. Updates are sequential per game, so arena runs stay deterministic.
+	if p.LearnOpponents && e.Models != nil {
+		m := e.Models.Get(gs.Game.ID, gs.You.ID)
+		m.Observe(s, p)
+		ctx = opponent.WithModel(ctx, m)
+	}
 
 	safe := legal.Safe(s, 0)
 	switch len(safe) {
