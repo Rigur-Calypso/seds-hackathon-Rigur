@@ -105,3 +105,9 @@ Paired results (DEVLOG §10.7): with trap refutation +0.79 pts/game against thre
 champion in qualifying (p = 0.002) and +0.74 in the bracket (p = 0.005), but −0.20 against the zoo
 (p = 0.15) with starvation deaths 17 → 27. Death-only refutation is neutral everywhere. Not promoted
 (zoo floor); to be re-measured together with P3.
+
+## handover — 09:50, behaviour frozen at c5a53ec
+
+Live verification: real 4-snake game on the live URL, 1 265 moves, p50 82 ms, p99 134 ms, 0 failed
+requests; 19×19 1v1 `duel depth=4` in 187 ms. P1 Threat Graph deployed with the flag off. P3
+food-race certificates parked on branch `improve-008-food-race` (builds, tests passing); not merged.

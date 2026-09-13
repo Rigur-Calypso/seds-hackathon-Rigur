@@ -1,8 +1,13 @@
 # NEXT STEPS — what YOU do now, in order
 
-Written 07:12 IST, 13 Sep. The code is built, tested, merged to `main` and tagged `known-good`.
-Everything left is a task only a human with your accounts can do. All free, no card.
-Feature freeze ≈ 08:45. Tournament after the build window closes.
+**Final handover — 09:50 IST, 13 Sep.** Live bot `c5a53ec` = `known-good`, verified with a real
+4-snake game on the live URL: 1 265 moves, p99 134 ms, 0 failed requests. Behaviour is frozen.
+
+> ⚠️ **Do not push or merge anything to `main` before or during matches.** Render redeploys and
+> restarts the snake on every merge. If something breaks, follow `RUNBOOK.md` §3 (`git revert`),
+> never `git reset --hard`.
+
+Earlier notes (07:12): everything left is a task only a human with your accounts can do. All free, no card.
 
 ---
 
