@@ -33,6 +33,16 @@ type Params struct {
 	// of all four possible next rings instead of the current ring (R8).
 	EnvelopeShrinkPessimistic bool `json:"envelopeShrinkPessimistic"`
 
+	// Threat Graph (P1): on TVAE outcomes where a squeeze is plausible, check
+	// whether one joint reply of the nearest opponents refutes every next move.
+	ThreatGraph        bool    `json:"threatGraph"`
+	ThreatRadius       int     `json:"threatRadius"`       // opponents within this distance take part
+	ThreatMaxOpponents int     `json:"threatMaxOpponents"` // nearest opponents enumerated
+	ThreatMaxEvals     int     `json:"threatMaxEvals"`     // resolutions per decision
+	ThreatForcedScore  float64 `json:"threatForcedScore"`  // value of a forced squeeze: below every normal position, above certain death
+	ThreatTrapRefutes  bool    `json:"threatTrapRefutes"`  // a reply that leaves us alive but without room also refutes (off: only death refutes)
+	ThreatLongerOnly   bool    `json:"threatLongerOnly"`   // only equal-or-longer opponents choose replies; shorter ones keep their default move (their bodies still block)
+
 	// Opponent ensemble mixture (advisory weights only; all legal actions stay).
 	EnsSpace   float64 `json:"ensSpace"`
 	EnsFood    float64 `json:"ensFood"`
@@ -73,8 +83,8 @@ type Params struct {
 	DuelEnabled  bool `json:"duelEnabled"`
 	DuelMaxDepth int  `json:"duelMaxDepth"`
 	// DuelMinDepth: the duel result replaces the TVAE move only if search
-	// completed at least this depth. Measured on 19×19: depth-3 paranoid search
-	// loses to TVAE head-to-head (41.5%), depth 4 beats it (55%).
+	// completed at least this depth (or proved a win). Measured on 19×19:
+	// depth-3 paranoid search loses to TVAE head-to-head (41.5%), depth 4 beats it (55%).
 	DuelMinDepth int     `json:"duelMinDepth"`
 	PlyStep      float64 `json:"plyStep"` // terminal ordering: win sooner / lose later
 }
@@ -94,6 +104,13 @@ func Defaults() Params {
 		RiskCVaR:       0.75,
 		RiskMin:        0,
 		CVaRAlpha:      0.25,
+
+		ThreatGraph:        false,
+		ThreatRadius:       4,
+		ThreatMaxOpponents: 2,
+		ThreatMaxEvals:     1500,
+		ThreatForcedScore:  -1.2,
+		ThreatTrapRefutes:  true,
 
 		EnsSpace:   1,
 		EnsFood:    1,

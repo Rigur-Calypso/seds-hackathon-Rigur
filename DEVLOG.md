@@ -455,7 +455,7 @@ later with identical outcomes) and did not restore the bracket figure. See §10.
    turn cap, tie-break), bootstrap confidence intervals, `--diagnose`, adversarial zoo (pincer,
    food-bait, edge-herder, storm-trapper), `--duel-depth` also lowers `duelMinDepth`; fuzz tests
 3. ✅ improve-006 — proven duel wins bypass the depth gate (§10.3, §10.6)
-4. improve-007 — **P1 Threat Graph** (selective second ply)
+4. ✅ improve-007 — **P1 Threat Graph** (selective second ply) — merged behind a flag, not yet enabled (§10.7)
 5. improve-008 — **P3 food-race certificates**
 6. improve-009 — **P2 opponent adaptation** + threat-preserving pruning
 7. improve-010 — four-world royale storm
@@ -527,3 +527,54 @@ latency — with no outcome regressions. The §10.3 hypothesis is **falsified**:
 of the 8.84 → 8.827 bracket change. The remaining suspect, proven shallow losses now playing the TVAE
 move instead of search's "lose as late as possible" move, is worth about one game in 300 and was not
 pursued.
+
+### 10.7 improve-007 — P1 Threat Graph (merged behind a flag, not enabled)
+
+What was built:
+- **`internal/threat`.** `Triggered` fires on a TVAE outcome only when an opponent is within 4 cells
+  and there is also a second nearby opponent, a corridor (≤ 1 safe exit), tight space (every exit
+  leads to less than twice our length) or every exit contested by an equal-or-longer head. `Check`
+  asks whether **one joint reply** of the two nearest opponents refutes **every** next move of ours —
+  the simultaneous-move form of a sandwich. A move is refuted by death, or (with
+  `threatTrapRefutes`) by leaving us with less room than our length. `room()` counts cells reached
+  before every equal-or-longer head, honours body release (R4, R9) and ignores shorter heads' claims
+  (R2). 1 500 resolutions per decision; an unfinished check never marks an outcome forced.
+- **Envelope hook.** A forced surviving outcome scores `min(score, −1.2)`: below every normal
+  position, above certain death. `Candidate.Forced` counts them.
+- **Params** (`config`): `threatGraph` (off), `threatRadius` 4, `threatMaxOpponents` 2,
+  `threatMaxEvals` 1 500, `threatForcedScore` −1.2, `threatTrapRefutes` true, `threatLongerOnly` false.
+- **Tests:** the real diagnosed sandwich (qualifying seed 5000131) is forced; an exit guarded by a
+  shorter head is not; budget exhaustion never forces; an open board does not trigger; a corridor
+  does; `room()` ignores shorter claims; the trap-refutation and longer-only switches; the envelope
+  penalises the move into the sandwich.
+
+Found during development: the first build judged "trapped" with the evaluator's Voronoi fill. The
+shorter-head unit test showed that a shorter snake arriving first made exits look sealed, so
+`room()` replaced it before any tuning.
+
+Paired measurements (shipped profile A vs variant B; seeds 42,5,725,1337,99; 0 timeouts everywhere;
+p99 decision 7–11 ms on the M3 against 8–10 ms baseline):
+
+| Variant | Qualifying vs zoo, 500 | Qualifying vs 3 champions, 200 | Bracket vs zoo, 300 | Bracket vs 3 champions, 200 |
+|---|---|---|---|---|
+| V0 Voronoi trap test (first build) | +0.08 (p 0.15) | +0.32 (p 0.011) | −0.02 (p 0.68) | — |
+| V1 `room()` trap, −1.2 | −0.20 (p 0.15); starvation 17 → 27 | **+0.79 (p 0.002)**; h2h 87 → 72 | −0.11 (p 0.43); starvation 5 → 13 | **+0.74 (p 0.005)**; h2h 75 → 52 |
+| V2 death-only refutation | +0.01 (p 0.79) | +0.08 (p 0.34) | −0.02 (p 0.62) | +0.03 (p 0.61) |
+| V3 `room()` trap, −0.6 | −0.05 (p 0.34) | +0.25 (p 0.12) | — | — |
+| V4 `room()` trap, longer-only | −0.20 (p 0.15); starvation 17 → 27 | **+0.73 (p 0.006)** | −0.10 (p 0.50); starvation 5 → 14 | **+0.63 (p 0.010)** |
+
+Reading:
+- **The trap refutation is where the value is.** Against copies of the champion — the strongest
+  opponents available — it cuts head-to-head deaths sharply and adds +0.6 to +0.8 pts/game,
+  significant in both stages. Death-only refutation is harmless and useless.
+- **The same branch makes the snake avoid tight food spots near other snakes.** Against the
+  food-racing zoo starvation deaths rise and points drop 0.1–0.2 (not significant; confidence
+  intervals cross zero). Restricting replies to equal-or-longer opponents changed nothing, so the
+  cause is avoidance of cramped food, not shorter snakes.
+- **Caveat:** the self-play gain is measured against copies of our own engine and may overstate the
+  effect against varied strong opponents.
+
+Decision: merged with `threatGraph` off in every profile — no behaviour change (the A side of every
+paired run reproduces the shipped baselines exactly). **Not promoted**, because the gate requires no
+regression of the zoo floor. P3 (food-race certificates) targets starvation directly; P1 is
+re-measured together with P3 before any profile enables it.

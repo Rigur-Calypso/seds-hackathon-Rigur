@@ -6,6 +6,7 @@ package envelope
 
 import (
 	"context"
+	"math"
 
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/board"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/legal"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/opponent"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/rules"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/threat"
 )
 
 // Candidate is one of our moves with its aggregated value.
@@ -23,6 +25,7 @@ type Candidate struct {
 	CVaR     float64
 	Min      float64
 	Outcomes int
+	Forced   int // outcomes the Threat Graph marked as forced squeezes
 }
 
 type outcome struct{ v, w float64 }
@@ -46,9 +49,11 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []boar
 	if p.EnvelopeShrinkPessimistic {
 		opt.Shrink = rules.ShrinkPessimistic
 	}
+	tb := threat.Budget{Left: p.ThreatMaxEvals}
 	for _, m := range dirs {
 		moves[0] = m
 		buf = buf[:0]
+		forced := 0
 		for k := range idx {
 			idx[k] = 0
 		}
@@ -59,7 +64,16 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []boar
 				w *= opps[k].W[idx[k]]
 			}
 			next := rules.Resolve(s, moves, opt)
-			buf = append(buf, outcome{eval.Score(s, next, p), w})
+			sc := eval.Score(s, next, p)
+			// P1 Threat Graph: a surviving outcome from which the nearby opponents
+			// can close every exit with one joint reply is a near-terminal squeeze.
+			if p.ThreatGraph && !eval.IsLoss(sc) && !eval.IsWin(sc) && threat.Triggered(next, p) {
+				if r := threat.Check(next, p, &tb); r.Forced {
+					sc = math.Min(sc, p.ThreatForcedScore)
+					forced++
+				}
+			}
+			buf = append(buf, outcome{sc, w})
 			if err := ctx.Err(); err != nil {
 				return out, err
 			}
@@ -75,7 +89,9 @@ func Evaluate(ctx context.Context, s *board.State, p *config.Params, dirs []boar
 				break
 			}
 		}
-		out = append(out, Aggregate(m, buf, p))
+		c := Aggregate(m, buf, p)
+		c.Forced = forced
+		out = append(out, c)
 	}
 	return out, nil
 }
