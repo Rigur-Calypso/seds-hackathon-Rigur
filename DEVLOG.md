@@ -607,3 +607,44 @@ placement utility, latency circuit breaker, parameter-grid tuning, duel transpos
 **Recommended next, after the event:** measure P3 alone, then P1 (trap refutation) together with P3
 on the zoo and self-play pools; enable P1 only if the zoo floor holds, or for the bracket and final
 only as a documented judgment call (§10.7).
+
+### 10.10 improve-009 — P2 in-game opponent adaptation + threat-preserving pruning (flags off)
+
+**Change.**
+- `opponent.Model` / `opponent.Models`: per-game learner owned by `decide.Engine`, keyed by `game.id`
+  and our snake id, mutex guarded, deleted in `/end` (`Engine.EndGame`), pruned by age, reset when the
+  turn goes backwards (the arena reuses game ids). Per opponent (snake id, game-scoped per R11): a
+  posterior over the ensemble policies (space, food, aggression, uniform).
+- Each turn `Decide` calls `Observe`: the move is inferred from `body[1] → body[0]`, the posterior is
+  updated `w_k ← w_k·(ε + P_k(actual))`, normalised, and moved only `learnMaxStep` of the way.
+  `Choices` records this turn's per-policy distributions for the next update (first call per turn only).
+- Mixture `(1−λ)·profile + λ·posterior`, `λ = min(1, obs/learnMinObs)`; the uniform weight never drops
+  below the profile's, so every legal move keeps weight and nothing is pruned.
+- Timeout prior: latency ≥ `learnSlowFrac` × `game.timeout` adds `learnSlowWeight` to continuing straight.
+- Plumbing: the model travels in the decision context (`opponent.WithModel` / `ModelFrom`); a nil
+  model leaves the ensemble arithmetic unchanged bit for bit.
+- Threat-preserving pruning (`threatPreservingPrune`): an opponent collapsed by `Reduce` keeps every
+  move landing within `pruneKeepRadius` (2) of our head, which covers all cells adjacent to our next
+  cells. Each opponent collapses at most once, so the loop terminates.
+- Params (defaults): `learnOpponents` false, `learnEps` 0.05, `learnMaxStep` 0.5, `learnMinObs` 8,
+  `learnSlowFrac` 0.8, `learnSlowWeight` 1, `threatPreservingPrune` false, `pruneKeepRadius` 2.
+- Tests: convergence toward the observed policy, per-turn cap, uniform floor, move inference from the
+  body and no observation across a turn gap, nil-model determinism, `Models.End`, pruning keeps near
+  threats and terminates. Arena tests (differential and null determinism test) pass.
+
+**Measured** with both flags on (no time to separate them), paired seeds 42,5,725,1337,99:
+
+| Run | A | B | Δ pts [95 % CI] | p | Starved A→B | H2H A→B |
+|---|---|---|---|---|---|---|
+| qualifying vs zoo, 500 | 8.768 | 8.803 | +0.035 [−0.216, +0.280] | 0.78 | 17→14 | 46→49 |
+| qualifying vs champion, 200 | 4.823 | 5.310 | +0.488 [−0.068, +0.998] | 0.082 | 2→0 | 87→77 |
+| bracket vs zoo, 300 | 8.827 | 8.793 | −0.033 [−0.333, +0.253] | 0.83 | 5→13 | 30→23 |
+| bracket vs champion, 200 | 4.855 | 4.798 | −0.058 [−0.603, +0.485] | 0.84 | 10→10 | 75→80 |
+
+**Reading.** Neutral against the zoo in both stages. The qualifying self-play gain (+0.49, fewer
+head-to-head deaths) is suggestive but not significant. Timeout counts are laptop-contention artefacts
+(twelve arena processes in parallel, no decision budget; identical A code shows 0–23); B's p99 was not
+worse than A's in any run.
+
+**Decision.** Not promoted. Next: measure `learnOpponents` and `threatPreservingPrune` separately, and
+the qualifying self-play run at 500 games, before any enablement.

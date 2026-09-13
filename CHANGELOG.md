@@ -111,3 +111,15 @@ champion in qualifying (p = 0.002) and +0.74 in the bracket (p = 0.005), but −
 Live verification: real 4-snake game on the live URL, 1 265 moves, p50 82 ms, p99 134 ms, 0 failed
 requests; 19×19 1v1 `duel depth=4` in 187 ms. P1 Threat Graph deployed with the flag off. P3
 food-race certificates parked on branch `improve-008-food-race` (builds, tests passing); not merged.
+
+## improve-009 — P2 opponent adaptation + threat-preserving pruning (behind flags, not enabled)
+
+Per-game opponent learner (`opponent.Model`, keyed by game id and our snake id, cleared on `/end`):
+posterior over the ensemble policies from observed moves, blended in after `learnMinObs`, uniform floor
+kept, timeout prior from R11 latency. `Reduce` optionally keeps moves near our head when collapsing an
+opponent. Params `learnOpponents`, `learnEps`, `learnMaxStep`, `learnMinObs`, `learnSlowFrac`,
+`learnSlowWeight`, `threatPreservingPrune`, `pruneKeepRadius`. Seven new tests.
+
+Paired results, both flags on (DEVLOG §10.10): qualifying +0.035 (zoo, p = 0.78) / +0.488 (champion,
+p = 0.082); bracket −0.033 (zoo, p = 0.83) / −0.058 (champion, p = 0.84). NOT PROMOTED (no significant
+gain); flags to be measured separately.
