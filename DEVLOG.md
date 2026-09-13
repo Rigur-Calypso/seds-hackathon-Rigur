@@ -456,7 +456,7 @@ later with identical outcomes) and did not restore the bracket figure. See §10.
    food-bait, edge-herder, storm-trapper), `--duel-depth` also lowers `duelMinDepth`; fuzz tests
 3. ✅ improve-006 — proven duel wins bypass the depth gate (§10.3, §10.6)
 4. ✅ improve-007 — **P1 Threat Graph** (selective second ply) — merged behind a flag, not yet enabled (§10.7)
-5. improve-008 — **P3 food-race certificates**
+5. ⏸ improve-008 — **P3 food-race certificates** — parked on branch `improve-008-food-race` at handover (§10.8)
 6. improve-009 — **P2 opponent adaptation** + threat-preserving pruning
 7. improve-010 — four-world royale storm
 8. improve-011 — exact tournament-points terminal utility
@@ -578,3 +578,32 @@ Decision: merged with `threatGraph` off in every profile — no behaviour change
 paired run reproduces the shipped baselines exactly). **Not promoted**, because the gate requires no
 regression of the zoo floor. P3 (food-race certificates) targets starvation directly; P1 is
 re-measured together with P3 before any profile enables it.
+
+### 10.8 Handover — behaviour frozen (09:50)
+
+The owner asked to wrap up so the bot is ready. From here: no behaviour changes on `main`.
+
+**Live bot:** `c5a53ec` = `known-good` = `origin/main`, verified at 09:49 against
+https://seds-hackathon-rigur.onrender.com:
+
+| Check | Result |
+|---|---|
+| `GET /` | 200 in 126–134 ms (one 316 ms first request) |
+| `/move` 4-snake 11×11 royale / standard | `tvae`, compute 0 ms, 114–249 ms round trip |
+| `/move` 19×19 1v1 royale | `duel depth=4`, compute 34 ms, 187 ms round trip |
+| **Real 4-snake CLI game on the live URL** | **1 265 moves, p50 82 ms, p99 134 ms, max 235 ms, 0 failed requests** |
+
+**What is live:** everything through improve-006 — exact resolver, TVAE with per-stage risk blend,
+temporal Voronoi, royale layer, depth-gated duel search that also plays proven wins, 50 ms compute
+cap, latency-adaptive budget, `X-Snake-Decision` header. The P1 Threat Graph code is deployed with
+`threatGraph` **off** in every profile.
+
+**Parked, not merged:** P3 food-race certificates on branch `improve-008-food-race`
+(`WinFoodDist` in the Voronoi fill, `winnableFood` flag default off; builds, tests passing; not measured).
+
+**Not started:** P2 opponent adaptation, threat-preserving pruning, four-world royale storm, exact
+placement utility, latency circuit breaker, parameter-grid tuning, duel transposition-table benchmark.
+
+**Recommended next, after the event:** measure P3 alone, then P1 (trap refutation) together with P3
+on the zoo and self-play pools; enable P1 only if the zoo floor holds, or for the bracket and final
+only as a documented judgment call (§10.7).
