@@ -607,3 +607,22 @@ placement utility, latency circuit breaker, parameter-grid tuning, duel transpos
 **Recommended next, after the event:** measure P3 alone, then P1 (trap refutation) together with P3
 on the zoo and self-play pools; enable P1 only if the zoo floor holds, or for the bracket and final
 only as a documented judgment call (§10.7).
+
+### 10.11 improve-010 — arena promotion gate (tooling only, found in external review)
+
+**Defect.** `Paired.Significant` was `pPoints < 0.05 || pWin < 0.05`: two-sided, on points *or* wins,
+so a significant **regression** also read `significantAt05: true`, and the bootstrap CI was not
+required to exclude zero. The grid's `anyCellSignificantAt05` said whether *any* environment was
+significant, not whether all passed. Any promotion that trusted the flag could have shipped a loss.
+Past promotions (DEVLOG §7, §10) were read from mean, p and CI by hand, so none was affected.
+
+**Fix (test first).** `promotionGate` passes B only if the mean paired points difference is positive,
+`p < 0.05`, the bootstrap 95 % CI lower bound is above zero, and B had zero timeouts; each failing
+criterion is listed in `promotionGate.failReasons`. A grid passes only if every cell passes on its own.
+The old fields stay, documented as descriptive only (the null test still uses them).
+Tests: `TestPromotionGate` (seven cases), `TestPairedRegressionNeverPromotes` (a clear regression is
+two-sided significant but never passes), `TestGridGateRequiresEveryCell`. They failed to compile before
+the fix; `go vet` and race-enabled arena tests pass after it.
+
+**Scope.** `tools/arena` only; `cmd/server` does not import it, so the bot binary is unchanged. Merging
+still restarts the Render service, so it waits until matches are over.

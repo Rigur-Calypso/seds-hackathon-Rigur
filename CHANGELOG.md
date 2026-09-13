@@ -111,3 +111,10 @@ champion in qualifying (p = 0.002) and +0.74 in the bracket (p = 0.005), but −
 Live verification: real 4-snake game on the live URL, 1 265 moves, p50 82 ms, p99 134 ms, 0 failed
 requests; 19×19 1v1 `duel depth=4` in 187 ms. P1 Threat Graph deployed with the flag off. P3
 food-race certificates parked on branch `improve-008-food-race` (builds, tests passing); not merged.
+
+## improve-010 — arena promotion gate (tooling only)
+
+`significantAt05` fired on significant regressions too (two-sided, points or wins) and the grid only
+reported whether any cell was significant. New `promotionGate` in every paired report: mean points
+difference > 0, p < 0.05, bootstrap CI lower bound > 0, zero B timeouts; grid `promotionGate` requires
+every cell to pass. Three tests, written first. Server binary unchanged.
