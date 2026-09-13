@@ -93,3 +93,15 @@ identical in all 900; 36 games changed, 33 of them ended sooner (19×19: 182 →
 no outcome or death-cause changes. The hypothesis that this caused the 8.84 → 8.827 bracket dip is
 falsified; the likely remaining cause (proven shallow losses now play the TVAE move) is worth about
 one game in 300 and was not pursued.
+
+## improve-007 — P1 Threat Graph (behind a flag, not enabled)
+
+New `internal/threat`: a selective two-turn squeeze check on TVAE outcomes. If one joint reply of the
+nearest opponents refutes every next move (death, or alive without room), the outcome scores −1.2.
+Params `threatGraph` (off), `threatRadius`, `threatMaxOpponents`, `threatMaxEvals`,
+`threatForcedScore`, `threatTrapRefutes`, `threatLongerOnly`. Nine unit and integration tests.
+
+Paired results (DEVLOG §10.7): with trap refutation +0.79 pts/game against three copies of the
+champion in qualifying (p = 0.002) and +0.74 in the bracket (p = 0.005), but −0.20 against the zoo
+(p = 0.15) with starvation deaths 17 → 27. Death-only refutation is neutral everywhere. Not promoted
+(zoo floor); to be re-measured together with P3.
