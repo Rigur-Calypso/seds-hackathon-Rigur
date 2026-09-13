@@ -1,6 +1,6 @@
 # NEXT STEPS — what YOU do now, in order
 
-Written 07:20 IST, 13 Sep. The code is built, tested, merged to `main` and tagged `known-good`.
+Written 07:12 IST, 13 Sep. The code is built, tested, merged to `main` and tagged `known-good`.
 Everything left is a task only a human with your accounts can do. All free, no card.
 Feature freeze ≈ 08:45. Tournament after the build window closes.
 
