@@ -607,3 +607,38 @@ placement utility, latency circuit breaker, parameter-grid tuning, duel transpos
 **Recommended next, after the event:** measure P3 alone, then P1 (trap refutation) together with P3
 on the zoo and self-play pools; enable P1 only if the zoo floor holds, or for the bracket and final
 only as a documented judgment call (§10.7).
+
+### 10.9 improve-008 — P3 food-race certificates (merged behind a flag, not enabled)
+
+**Change.** `voronoi.Result.WinFoodDist`: distance to the nearest food the snake *wins* (sole first
+arriver, or tied and the unique strictly-longest arriver, R2) and can *leave* (some neighbour first
+reached one turn later with no equal-or-longer head arriving with it). With `winnableFood` on, the
+growth term counts only winnable food; hunger urgency uses the nearest winnable food, else falls back
+to the nearest reachable food (the span slack `health − (W+H)` under-states urgency when every meal is
+contested). Flag default **off**. Tests: `TestWinFoodDist` (tie not winnable, longer snake wins the
+tie, sealed pocket has no escape).
+
+**Measured** (paired seeds 42,5,725,1337,99, deterministic, B = shipped profile + flag):
+
+| Run | A | B | Δ pts [95 % CI] | p | Starved A→B | H2H A→B |
+|---|---|---|---|---|---|---|
+| P3, qualifying vs zoo, 500 | 8.768 | 8.826 | +0.058 [−0.106, +0.218] | 0.49 | 17→16 | 46→41 |
+| P3, qualifying vs champion, 200 | 4.823 | 4.785 | −0.038 [−0.408, +0.328] | 0.84 | 2→2 | 87→86 |
+| P3, bracket vs zoo, 300 | 8.827 | 8.892 | +0.065 [−0.097, +0.230] | 0.44 | 5→7 | 30→32 |
+| P3, bracket vs champion, 200 | 4.855 | 4.743 | −0.113 [−0.502, +0.270] | 0.57 | 10→6 | 75→75 |
+| P1+P3, qualifying vs zoo, 500 | 8.768 | 8.615 | −0.153 [−0.430, +0.149] | 0.29 | 17→23 | 46→44 |
+| P1+P3, qualifying vs champion, 200 | 4.823 | 5.298 | +0.475 [−0.078, +0.998] | 0.084 | 2→3 | 87→75 |
+| P1+P3, bracket vs zoo, 300 | 8.827 | 8.733 | −0.093 [−0.403, +0.203] | 0.55 | 5→13 | 30→24 |
+| **P1+P3, bracket vs champion, 200** | 4.855 | 5.513 | **+0.658 [+0.103, +1.220]** | **0.029** | 10→3 | 75→55 |
+
+**Reading.** P3 alone is neutral everywhere (|Δ| ≤ 0.11, no CI excludes 0). It softens P1's
+starvation cost in qualifying (P1 alone vs zoo: −0.20, starved 17→27, §10.7; with P3: −0.15, 17→23)
+but not in the bracket (5→13). P1+P3 is significant only against three champions in the bracket.
+
+**Timeouts** in these runs (e.g. A 0 / B 16, A 12 / B 1) are wall-clock artefacts: twelve arena
+processes ran at once on the laptop, with no decision budget, and identical A code shows 0–23. They
+do not measure the bot; re-measure latency alone before any promotion.
+
+**Decision.** Not promoted. The gate requires no zoo regression; P1+P3 regresses (non-significantly)
+against the zoo in both stages. Enabling P1+P3 for the bracket only remains a judgment call for the
+owner, as in §10.7.

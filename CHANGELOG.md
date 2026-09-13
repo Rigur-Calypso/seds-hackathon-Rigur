@@ -111,3 +111,14 @@ champion in qualifying (p = 0.002) and +0.74 in the bracket (p = 0.005), but −
 Live verification: real 4-snake game on the live URL, 1 265 moves, p50 82 ms, p99 134 ms, 0 failed
 requests; 19×19 1v1 `duel depth=4` in 187 ms. P1 Threat Graph deployed with the flag off. P3
 food-race certificates parked on branch `improve-008-food-race` (builds, tests passing); not merged.
+
+## improve-008 — P3 food-race certificates (behind a flag, not enabled)
+
+`voronoi.Result.WinFoodDist` (food we win under R2 and can leave). Param `winnableFood` (off): growth
+counts winnable food only; hunger uses winnable food, else the nearest reachable food. Test
+`TestWinFoodDist`.
+
+Paired results (DEVLOG §10.9): P3 alone neutral — qualifying +0.058 (zoo, p = 0.49) / −0.038
+(champion, p = 0.84); bracket +0.065 (zoo, p = 0.44) / −0.113 (champion, p = 0.57). P1+P3: bracket
+vs champion **+0.658 (p = 0.029)**, qualifying vs champion +0.475 (p = 0.084), but −0.153 / −0.093 vs
+the zoo with starvation 17→23 / 5→13. NOT PROMOTED (zoo floor).
