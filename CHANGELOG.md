@@ -80,3 +80,16 @@ Replacement planned: four explicit shrink worlds combined by stage risk posture.
 Measured: default qualifying 500 games 8.768 pts / 84.0 % (identical); `--diagnose` 80 losses,
 0 avoidable, 57 sealed 1–3 turns earlier; adversarial zoo qualifying 9.22 pts / 90.3 %, royale
 8.88 pts / 85.3 % (not harder than the zoo — self-play remains the strongest test).
+
+## improve-006 — proven duel wins bypass the depth gate (test first)
+
+`duelMinDepth` discarded a win that duel search had already proven below depth 4 (search stops once
+the result is certain). Regression test `TestProvenWinBypassesDepthGate` failed on the old code
+(`reason=tvae depth=1`) and passes after the fix. Added `arena --results FILE` (per-game JSON lines)
+to compare two binaries game by game.
+
+Before/after on identical seeds — bracket 300, qualifying 500, 19×19 1v1 100 games: points and wins
+identical in all 900; 36 games changed, 33 of them ended sooner (19×19: 182 → 138 turns on average);
+no outcome or death-cause changes. The hypothesis that this caused the 8.84 → 8.827 bracket dip is
+falsified; the likely remaining cause (proven shallow losses now play the TVAE move) is worth about
+one game in 300 and was not pursued.

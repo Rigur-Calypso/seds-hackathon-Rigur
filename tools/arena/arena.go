@@ -488,6 +488,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	writeResultsIfRequested(resA)
 	if cfg.DumpLosses || (cfg.Diagnose && cfg.Examples > 0) {
 		sort.SliceStable(resA, func(a, b int) bool { return resA[a].Seed < resA[b].Seed })
 		shown := map[string]int{}
