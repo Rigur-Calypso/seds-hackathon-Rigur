@@ -126,6 +126,11 @@ func Heuristic(prev, next *board.State, p *config.Params) float64 {
 	if !next.Rules.Constrictor {
 		health := me.Health
 		fd := v.FoodDist[0]
+		if p.WinnableFood {
+			// P3: plan hunger and growth around food we win and can leave, not food
+			// an equal-or-longer snake reaches first or that seals us in.
+			fd = v.WinFoodDist[0]
+		}
 		slack := health - fd
 		if fd < 0 {
 			slack = health - int(span)

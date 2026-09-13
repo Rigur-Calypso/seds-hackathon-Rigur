@@ -34,7 +34,12 @@ type Result struct {
 	Contested  [MaxSnakes]int
 	Attack     [MaxSnakes]int
 	FoodDist   [MaxSnakes]int // -1 if unreachable
-	SafeExits  [MaxSnakes]int
+	// WinFoodDist is the distance to the nearest food this snake wins — sole
+	// first arriver, or tied and the unique strictly-longest (R2) — and can
+	// leave afterwards: some neighbour it reaches the next turn without an
+	// equal-or-longer head arriving there too (P3 food-race certificate). -1 if none.
+	WinFoodDist [MaxSnakes]int
+	SafeExits   [MaxSnakes]int
 	// ExitsUncontested counts next-turn exits no equal-or-longer head can also reach (R2).
 	ExitsUncontested [MaxSnakes]int
 	Trapped          [MaxSnakes]bool // Guaranteed+Contested < length
@@ -94,6 +99,7 @@ func Compute(s *board.State, focus int) Result {
 	var r Result
 	for i := range r.FoodDist {
 		r.FoodDist[i] = -1
+		r.WinFoodDist[i] = -1
 	}
 	n := s.Cells()
 	if n <= 0 {
@@ -226,8 +232,10 @@ func Compute(s *board.State, focus int) Result {
 		if m == 0 || sc.dist[c] == 0 {
 			continue
 		}
+		winner := -1
 		if bits.OnesCount8(m) == 1 {
-			r.Guaranteed[bits.TrailingZeros8(m)]++
+			winner = bits.TrailingZeros8(m)
+			r.Guaranteed[winner]++
 		} else {
 			best, bestLen, unique := -1, -1, false
 			for mm := m; mm != 0; mm &= mm - 1 {
@@ -242,6 +250,7 @@ func Compute(s *board.State, focus int) Result {
 			}
 			if unique {
 				r.Attack[best]++
+				winner = best
 			}
 		}
 		if sc.food[c] {
@@ -251,6 +260,9 @@ func Compute(s *board.State, focus int) Result {
 				if r.FoodDist[j] < 0 || d < r.FoodDist[j] {
 					r.FoodDist[j] = d
 				}
+			}
+			if winner >= 0 && (r.WinFoodDist[winner] < 0 || d < r.WinFoodDist[winner]) && sc.escapes(s, c, winner, &lens) {
+				r.WinFoodDist[winner] = d
 			}
 		}
 	}
@@ -288,4 +300,35 @@ func Compute(s *board.State, focus int) Result {
 		r.Robust = r.Reach(0)
 	}
 	return r
+}
+
+// escapes is the post-food certificate: after snake j eats at cell c (arriving
+// at t = dist[c]), some neighbour of c is first reached exactly one turn later
+// with j among the arrivers and no equal-or-longer other snake arriving with it.
+// Cells claimed at or before t are excluded — they may be j's own neck.
+func (sc *scratch) escapes(s *board.State, c, j int, lens *[MaxSnakes]int) bool {
+	t := sc.dist[c]
+	bit := uint8(1) << uint(j)
+	p := s.Pt(c)
+	for _, d := range board.AllDirs {
+		q, ok := s.Step(p, d)
+		if !ok {
+			continue
+		}
+		x := s.Idx(q)
+		if sc.dist[x] != t+1 || sc.mask[x]&bit == 0 {
+			continue
+		}
+		contested := false
+		for mm := sc.mask[x] &^ bit; mm != 0; mm &= mm - 1 {
+			if lens[bits.TrailingZeros8(mm)] >= lens[j] {
+				contested = true
+				break
+			}
+		}
+		if !contested {
+			return true
+		}
+	}
+	return false
 }

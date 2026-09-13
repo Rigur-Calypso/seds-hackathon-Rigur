@@ -85,6 +85,23 @@ func TestCutCellDiscount(t *testing.T) {
 	}
 }
 
+// P3 food-race certificates: equal-length ties are not winnable, a longer
+// snake wins the tie (R2), and food with no way out afterwards does not count.
+func TestWinFoodDist(t *testing.T) {
+	tie := Compute(st(t, "you 100 2,5 1,5 0,5\nsnake peer 100 8,5 9,5 10,5\nfood 5,5"), 0)
+	if tie.FoodDist[0] != 3 || tie.WinFoodDist[0] != -1 || tie.WinFoodDist[1] != -1 {
+		t.Fatalf("equal-length race: food=%d win=%v", tie.FoodDist[0], tie.WinFoodDist[:2])
+	}
+	longer := Compute(st(t, "you 100 2,5 1,5 0,5 0,4\nsnake peer 100 8,5 9,5 10,5\nfood 5,5"), 0)
+	if longer.WinFoodDist[0] != 3 || longer.WinFoodDist[1] != -1 {
+		t.Fatalf("longer snake must win the tie: win=%v", longer.WinFoodDist[:2])
+	}
+	pocket := Compute(st(t, "size 5 5\nyou 100 0,2 0,3 0,4\nsnake wall 100 2,0 1,0 1,1 1,2 1,3 1,4\nfood 0,0"), 0)
+	if pocket.FoodDist[0] != 2 || pocket.WinFoodDist[0] != -1 {
+		t.Fatalf("food in a sealed pocket: food=%d win=%d", pocket.FoodDist[0], pocket.WinFoodDist[0])
+	}
+}
+
 // Metamorphic: rotating/reflecting the board or permuting opponents must
 // transform the result correspondingly.
 func TestMetamorphic(t *testing.T) {

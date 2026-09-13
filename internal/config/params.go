@@ -56,7 +56,8 @@ type Params struct {
 	WTrapped          float64 `json:"wTrapped"`
 	WRobust           float64 `json:"wRobust"`
 	WExits            float64 `json:"wExits"`
-	WNoSafeExit       float64 `json:"wNoSafeExit"` // every next-turn exit is reachable by an equal-or-longer head
+	WNoSafeExit       float64 `json:"wNoSafeExit"`  // every next-turn exit is reachable by an equal-or-longer head
+	WinnableFood      bool    `json:"winnableFood"` // P3 (work in progress): hunger and growth use food we win and can leave
 	WHunger           float64 `json:"wHunger"`
 	HungerMargin      int     `json:"hungerMargin"`
 	WFood             float64 `json:"wFood"`
