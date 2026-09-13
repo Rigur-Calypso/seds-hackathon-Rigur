@@ -66,8 +66,9 @@ func TestShrinkCadenceChangesTheGame(t *testing.T) {
 		}
 		return turn
 	}
-	if f5, f25 := first(5), first(25); f5 != 5 || f25 != -1 {
-		t.Fatalf("first hazard turn: shrink 5 → %d (want 5), shrink 25 within 40 turns → %d (want none)", f5, f25)
+	// R8: the first ring appears in the state whose turn equals the cadence.
+	if f5, f25 := first(5), first(25); f5 != 5 || f25 != 25 {
+		t.Fatalf("first hazard turn: shrink 5 → %d (want 5), shrink 25 → %d (want 25)", f5, f25)
 	}
 }
 
