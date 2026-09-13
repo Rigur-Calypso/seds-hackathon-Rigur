@@ -51,3 +51,16 @@ Change: `config/duel.json` `duelMaxDepth` 6 → 4.
 
 Measured after deploy (live b9a95ac): 19×19 1v1 `/move` 140–272 ms; real 19×19 CLI game on the
 live URL (455 turns): p50 190, p99 307, max 414 ms, 0 failed requests.
+
+## improve-004 — fix: `envelopeShrinkPessimistic` never reached the resolver
+
+Found in the owner's Codex review: `envelope.Evaluate` built the shrink option but always resolved
+with `ShrinkKeep`. Regression test `TestEnvelopeShrinkPessimisticReachesResolver` written first —
+it failed on the old code (identical scores 0.2366) and passes after the one-line fix.
+
+The earlier "no effect, 300 identical games" result (improve-001) was an artefact of this bug and
+is withdrawn. Corrected re-run with the flag really applied:
+- royale 11×11, 300 paired games: −0.07 pts/game (p = 0.47), −1.3 pp wins (p = 0.32); storm deaths
+  10 → 12, starvation 5 → 8 → **not promoted** (union of four rings is too passive); default stays off
+- royale 19×19 1v1, 100 paired games: identical (duel search decides almost every 1v1 move)
+Replacement planned: four explicit shrink worlds combined by stage risk posture.

@@ -2,7 +2,7 @@
 
 This file documents every action taken on the project, every deviation from the planning
 documents, and every original idea added beyond them. It is the "separate file" requested by
-the owner. Newest material is appended at the end of each section.
+the owner. Sections are in topic order; the timeline in §1 is the chronological index.
 
 ---
 
@@ -22,11 +22,18 @@ the owner. Newest material is appended at the end of each section.
 | 06:52–07:08 | Per-stage arena baselines, loss-bucket diagnosis, 9 paired experiments (§7), Copilot review triage (§5.5) |
 | 07:10 | TVAE-first depth-gated duel search promoted; slow-CPU emulation and a 763-turn 19×19 CLI game verified |
 | 07:12 | PR #2 merged after green CI; `known-good` moved to 9e3f3a3. Handover: NEXT_STEPS.md lists the owner-only tasks |
+| 07:13 | PR #3 (timeline correction) merged; `known-good` a6410b1 |
+| ~07:50 | Owner deployed on Render at https://seds-hackathon-rigur.onrender.com; live verification begins (§8) |
+| 07:59 | PR #4 merged: 50 ms compute cap from live measurements + `X-Snake-Decision` header (live `aa762f4`) |
+| 08:02 | PR #5 merged: grand-final duel search capped at depth 4 (live `b9a95ac`) |
+| 08:07 | PR #6 merged: live verification docs (live `82cb73e`) |
+| 08:10–08:35 | Owner registered the snake and played a practice game; hackathon extended by 1 h. Loss diagnostics and improvement proposals (§9); proposals PR #7 opened |
+| 08:40 | Owner approved P1, P2, P3 and shared a Codex review; triage and plan (§10) |
+| 08:41–08:45 | Codex-found defect fixed test-first (improve-004, §10.2); PR #7 merged |
 
 Because only ~2h45m remained before freeze when work began, the plan's "one step per branch,
 human verifies each gate" cadence was compressed (see §3.1). Every gate that can be measured on
-a laptop was measured; gates that need a human (phone on mobile data, Render dashboard,
-UptimeRobot) are listed in §6.
+a laptop was measured; gates that need a human are listed in §6.
 
 ---
 
@@ -74,7 +81,8 @@ only — nothing copied; our resolver is a clean-room reimplementation).
 ### 3.1 Branch cadence
 Plan: one branch/PR per step, human verifies each gate before merge. With < 3 h left, Steps 0–9
 landed on one branch `step-00-03-core` with a single PR, still squash-merged and tagged
-`known-good`. Every automated gate was run before merging (results in §5).
+`known-good`. Every automated gate was run before merging (results in §5). From improve-001 on,
+every change has its own branch and PR.
 
 ### 3.2 `Decide` signature
 Plan: `Decide(ctx, s) (string, Reason)`. Implemented `Engine.Decide(ctx, gs) Decision`, where
@@ -163,6 +171,11 @@ profile, so identical seeds give identical games (null test = exactly zero diffe
 18. **Loss-bucket diagnosis from fatal boards** (`arena --dump-losses`) and **automated review
     triage** (§5.5): every reviewer finding was checked against the code and either fixed, A/B
     tested, or rejected with a reason.
+19. **Compute cap from live measurements** (§8): budgets swept per request through `game.timeout`
+    against the live service, no redeploy needed; `X-Snake-Decision` header for observability.
+20. **Decision-level loss diagnostics** (§9.1): every loss classified by whether the fatal move
+    was avoidable and how many turns earlier the last real choice was — which showed that
+    lookahead at danger points, not the final move, is where points are lost.
 
 ---
 
@@ -210,14 +223,36 @@ losing head-to-head; the fourth is a snake still length 4 at turn 123.
 
 Null test (`TestNullTestDeterministic`): paired difference exactly 0 ✅.
 
+Re-measured at 08:44 on `main` + improve-004: qualifying 500 games **8.768 pts, 84.0 %** (identical);
+bracket 300 games **8.827 pts, 84.7 %** (was 8.84 / 85.0 % before PR #2 — see §10.3).
+
 ### 5.5 Copilot review of PR #1 (automated) — triage
 
 | Finding | Verdict | Action |
 |---|---|---|
 | CI licence check passes silently if `go list` fails (no `pipefail`) | Valid | Query into a variable first so failure is fatal |
 | `MinBudgetMs` floor can exceed a tiny `game.timeout` | Valid | Floor capped at half the timeout; test for `timeout=1` and `30` |
-| TVAE keeps the old ring on shrink turns | Partly valid (shrink-robustness term already uses the union of all four outcomes) | Added `envelopeShrinkPessimistic` and A/B-tested it (#4 below): zero effect, default off |
+| TVAE keeps the old ring on shrink turns | Partly valid (shrink-robustness term already uses the union of all four outcomes) | Added `envelopeShrinkPessimistic`. **The first A/B ("no effect") was invalid — the option was never passed to the resolver (§10.2).** Corrected re-run: −0.07 pts/game, not promoted; four-world storm planned instead |
 | Arena uses stale state when `Execute` reports game over | Not a bug: the engine's game-over stage runs before movement, and the loop breaks at ≤ 1 alive before calling `Execute` | None |
+
+### 5.6 Verification of the promoted change (improve-001)
+
+- Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.
+- Differential test still 2 877 turns identical; null test still exactly zero.
+- Slow-CPU emulation: 19×19 1v1 at `--budget 20` wall-clock, 60 games vs zoo → 100 % wins, **0 timeouts**, p99 21.5 ms.
+- Real CLI game, royale 19×19, two copies of the snake, 763 turns: **0 WARN**; 1 047 moves `duel` depth 6, 349 depth 5, 1 depth 4, 2 moves where search did not reach depth 4 and the TVAE move was played instead of the fallback; latency p50 83 ms, p99 221 ms (budget cap).
+
+---
+
+## 6. Gates only a human can close
+
+- [x] Render service created from this repo — live at https://seds-hackathon-rigur.onrender.com (~07:50)
+- [ ] `curl` the Render URL from a phone on mobile data (not yet confirmed)
+- [x] `gh secret set SNAKE_URL` — set 07:27; manual keepwarm run succeeded (scheduled runs not yet observed)
+- [ ] UptimeRobot 5-minute monitor (not yet confirmed)
+- [ ] Koyeb backup service + URL noted in RUNBOOK (not yet confirmed)
+- [x] Snake registered on play.battlesnake.com and one practice game played (~08:10)
+- [ ] Ask organisers: one real `/move` payload; shrink/damage settings; turn cap; number of qualifying rounds; engine location
 
 ---
 
@@ -232,7 +267,7 @@ of meaningful size with zero timeouts.
 | 1 | Stronger growth drive (`wFood` .35→.7, `lengthLead` 2→4, `foodDecayTurns` 250→400) cuts head-to-head + starvation losses | qualifying | 500 paired | +0.156 pts, +1.8 pp; h2h 46→37, starve 17→12, self 7→11 | 0.35 | **Reject** (not significant, < +0.4) |
 | 2 | `wNoSafeExit` 0.6→1.5 avoids sandwiches | qualifying | 500 | −0.048 pts | 0.41 | **Reject** |
 | 3 | `ensUniform` 0.5→1.5 so opponents' risky moves weigh more in the CVaR tail | qualifying | 500 | −0.076 pts; h2h 46→57 | 0.41 | **Reject** |
-| 4 | `envelopeShrinkPessimistic` (review finding) | bracket | 300 | 0.000 — all 300 games identical | 1.0 | **No effect**; option kept, default off |
+| 4 | `envelopeShrinkPessimistic` (review finding) | bracket | 300 | ~~0.000 — all 300 games identical~~ **invalid: the option never reached the resolver** (§10.2). Corrected re-run: −0.07 pts, −1.3 pp; storm deaths 10→12 | 0.47 | **Reject** (too passive) |
 | 5 | Duel search off in qualifying (TVAE handles 1v1 endgames) | qualifying | 500 | −0.072 pts, −1.8 pp | **0.0065** | **Reject** — duel search helps on 11×11 |
 | 6 | Duel search off in the bracket | bracket | 300 | −0.213 pts, −5.3 pp | **0.0003** | **Reject** — duel search clearly helps on 11×11 |
 | 7 | Duel search off for the 19×19 final (vs zoo, duel depth 3) | final | 100 | TVAE-only 98 % vs 93 % | 0.058 | Inconclusive → head-to-head |
@@ -246,9 +281,8 @@ iterative deepening will often stop at depth 3 — exactly the regime where it l
 time, and plays the duel move only if depth ≥ `duelMinDepth` = 4. Otherwise it plays the TVAE move.
 `decide.Decide` was changed to trust a completed evaluator result even if the deadline passed a
 moment later (previously a finished TVAE move would have been discarded for the fallback).
-In the deterministic arena this is identical to the measured champion (depth 4 always
-completes), so all stage baselines above still apply; on a slow CPU it degrades to TVAE instead of
-to shallow, measurably worse search.
+On a slow CPU it degrades to TVAE instead of to shallow, measurably worse search. (A side effect
+on proven shallow wins was found later — §10.3.)
 
 ---
 
@@ -326,8 +360,7 @@ occasional throttling; if the tournament engine is farther away than India→Sin
 `overhead_ms` field — the adaptive margin shrinks the budget automatically after the first moves
 of each game.
 
-Tuning stopped here, ~40 minutes before feature freeze: every further change needs a deploy plus
-live re-measurement, and the remaining risk is operational (keep-warm, registration), not code.
+Tuning paused here: every further change needs a deploy plus live re-measurement.
 
 ---
 
@@ -366,23 +399,68 @@ constrictor self 38, body 13, head-to-head 1.
 
 ### 9.3 Output
 `docs/IMPROVEMENT_PROPOSALS.md` (11 proposals, 3 tiers, gates, estimates, recommended order) and an
-approval page. Nothing in the bot was changed; the proposals PR is left open for the owner.
-
-### 5.6 Verification of the promoted change (improve-001)
-
-- Root tests incl. new `internal/search` tests (duel used only at min depth; a deadline that cuts duel search keeps the TVAE move) — green.
-- Differential test still 2 877 turns identical; null test still exactly zero.
-- Slow-CPU emulation: 19×19 1v1 at `--budget 20` wall-clock, 60 games vs zoo → 100 % wins, **0 timeouts**, p99 21.5 ms.
-- Real CLI game, royale 19×19, two copies of the snake, 763 turns: **0 WARN**; 1 047 moves `duel` depth 6, 349 depth 5, 1 depth 4, 2 moves where search did not reach depth 4 and the TVAE move was played instead of the fallback; latency p50 83 ms, p99 221 ms (budget cap).
+approval page (claude.ai artifact with decisions stored for Claude). Merged as PR #7 at 08:42 after
+the owner's approval.
 
 ---
 
-## 6. Gates only a human can close
+## 10. Codex review (08:40) — triage, fixes and implementation plan
 
-- [ ] Render service created from this repo (Go runtime, `go build -o app ./cmd/server`, `./app`)
-- [ ] `curl` the Render URL from a phone on mobile data
-- [ ] `gh secret set SNAKE_URL --body https://…onrender.com` (enables `keepwarm.yml`)
-- [ ] UptimeRobot 5-minute monitor
-- [ ] Koyeb backup service + URL noted in RUNBOOK
-- [ ] Snake registered on play.battlesnake.com and one practice game played
-- [ ] Ask organisers: one real `/move` payload; shrink/damage settings; turn cap; number of qualifying rounds
+The owner approved P1, P2 and P3 and asked to take "all the good and important" items from a
+Codex review of the codebase. Each item was checked against the code and the measurements.
+
+### 10.1 Triage
+
+| Codex item | Verdict | Reason / plan |
+|---|---|---|
+| `EnvelopeShrinkPessimistic` computed but never passed to the resolver | **Valid defect** | Fixed test-first (improve-004, §10.2) |
+| Selective two-turn Threat Graph: "can opponents force every exit contested or lethal next turn?" | **Take — merged with P1** | §9.1: 70–76 % of losses sealed 1–3 turns before death, unseen by the evaluator |
+| Four-world royale storm combined by stage risk posture | **Take** | The pessimistic union measured −0.07 pts (too passive, §7 #4); worlds enter the envelope as equal-weight branches so CVaR / mean / min apply per stage |
+| Exact tournament-points utility (10/6/3/1, simultaneous eliminations) | **Take** | Terminal utility for qualifying from exact tied-placement points; arena already scores this way |
+| Parameter-driven arena (food, hazard, shrink, map, turn cap, tie-break) + grid tuning | **Take** | Flags first; grid tuning after the features land |
+| Opponent adaptation (reweight after enough observations, never prune threats) | **Take — merged with P2** | |
+| Threat-preserving joint-action pruning | **Take** (with P2) | Collapsing an opponent must keep moves that can reach our next exits |
+| Food-race certificates (arrival, length at arrival, escape after eating) | **Take — merged with P3** | Starvation is 23 % of qualifying losses |
+| Duel transposition table + move ordering | **Defer** | Codex conditions it on a benchmark; after the above |
+| Controlled mixed play in equal 1v1 positions | **Skip for this event** | No opponent models our tie-breaks; determinism keeps paired tests valid |
+| Final posture chosen by score state | **Skip for now** | No score-state data yet; revisit with real games |
+| Latency circuit breaker | **Take** | Live tail: 0.2 % of 19×19 moves ≥ 400 ms (§8.4) |
+| Validation: tactical regression fixtures, organiser payload goldens, fuzz tests, bootstrap CIs, adversarial zoo | **Take** all but organiser payloads | Organiser payloads need a real request from the organisers (§6) |
+
+### 10.2 improve-004 — the defect, test first
+`envelope.Evaluate` built `opt` from `EnvelopeShrinkPessimistic` but resolved every outcome with a
+hard-coded `ShrinkKeep`. `TestEnvelopeShrinkPessimisticReachesResolver` (royale, turn 24, shrink 25,
+our head on the edge) asserts that the pessimistic ring lowers every candidate's score. It **failed
+on the old code** (both 0.2366) and passes after the one-line fix. All root and arena tests green.
+
+Consequences for the record: §7 #4 and the §5.5 Copilot triage row were based on the broken flag and
+are corrected above. Re-run with the flag really applied — royale 11×11, 300 paired games:
+−0.07 pts/game (p = 0.47), −1.3 pp wins (p = 0.32), storm deaths 10 → 12, starvation 5 → 8;
+royale 19×19 1v1, 100 paired games: identical (duel search decides nearly every move). Not
+promoted; default stays off.
+
+### 10.3 Observation — a side effect of `duelMinDepth`
+Re-measuring baselines at 08:44: qualifying is identical to before PR #2 (8.768 pts, 84.0 %) but the
+bracket moved from 8.84 pts / 85.0 % to 8.827 / 84.7 % (about one game in 300). The arena is
+deterministic, so behaviour changed. Hypothesis: when duel search proves a win before depth 4 it
+stops early, and the `duelMinDepth` gate then discards the proven winning move for the TVAE move.
+Planned fix: a proven win is always played; a proven loss still defers to TVAE (which picks the
+most robust line). To be confirmed with a paired bracket run.
+
+### 10.4 Implementation order
+
+1. ✅ improve-004 — storm-option defect, test first
+2. improve-005 — arena: parameters (food spawn, minimum food, hazard damage, shrink cadence, map,
+   turn cap, tie-break), bootstrap confidence intervals, `--diagnose`, adversarial zoo (pincer,
+   food-bait, edge-herder, storm-trapper), `--duel-depth` also lowers `duelMinDepth`; fuzz tests
+3. improve-006 — proven duel wins bypass the depth gate (§10.3)
+4. improve-007 — **P1 Threat Graph** (selective second ply)
+5. improve-008 — **P3 food-race certificates**
+6. improve-009 — **P2 opponent adaptation** + threat-preserving pruning
+7. improve-010 — four-world royale storm
+8. improve-011 — exact tournament-points terminal utility
+9. improve-012 — latency circuit breaker
+10. Robust tuning across a parameter grid; duel transposition-table benchmark
+
+Every behaviour change ships behind a config flag that defaults off, is enabled only after a paired
+arena gate with bootstrap confidence intervals, and is checked live through `X-Snake-Decision`.
