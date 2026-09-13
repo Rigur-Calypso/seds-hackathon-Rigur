@@ -1,7 +1,10 @@
 # Improvement proposals — awaiting approval
 
-Status: **PROPOSED, nothing implemented.** Written 13 Sep 2026, 08:30 IST, against live `known-good`
-`82cb73e`. Every proposal is an **addition**: new code behind a config flag that ships **off**,
+Status: **APPROVED 13 Sep 08:40 — P1, P2, P3, merged with the owner's Codex review** (storm-option
+defect, two-turn Threat Graph, four-world royale storm, exact placement utility, parameter-driven
+arena, opponent adaptation, threat-preserving pruning, food-race certificates, latency circuit
+breaker, stronger validation). Implementation order and results: DEVLOG §10. Written 13 Sep 2026,
+08:30 IST, against live `known-good` `82cb73e`. Every proposal is an **addition**: new code behind a config flag that ships **off**,
 measured in the arena, checked live with the `X-Snake-Decision` header, then switched on with a
 one-line config PR. Switching it off again is the rollback.
 
