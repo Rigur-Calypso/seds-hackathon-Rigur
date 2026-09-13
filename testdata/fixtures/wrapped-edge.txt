@@ -1,0 +1,6 @@
+# Wrapped: up/down are opponent necks-to-be; right is our neck. Left wraps to 10,5.
+rules wrapped
+you 100 0,5 1,5 2,5
+snake a 100 0,6 0,7 0,8
+snake b 100 0,4 0,3 0,2
+expect left

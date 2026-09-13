@@ -1,0 +1,15 @@
+{
+  "name": "royale",
+  "riskMean": 0.5,
+  "riskCVaR": 0.5,
+  "riskMin": 0,
+  "cvarAlpha": 0.3,
+  "wKill": 1.2,
+  "wOppTrapped": 0.8,
+  "wCentre": 0.6,
+  "wInHazard": 0.5,
+  "wShrinkRobust": 0.4,
+  "wHazardWeapon": 0.4,
+  "duelEnabled": true,
+  "duelMaxDepth": 4
+}

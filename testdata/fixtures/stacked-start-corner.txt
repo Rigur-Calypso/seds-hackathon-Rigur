@@ -1,0 +1,6 @@
+# Turn 0 stacked body in a corner: no neck exists; only up and right are on-board.
+turn 0
+you 100 0,0 0,0 0,0
+snake a 100 10,10 10,10 10,10
+food 5,5
+expect up right

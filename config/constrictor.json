@@ -1,0 +1,17 @@
+{
+  "name": "constrictor",
+  "riskMean": 0.2,
+  "riskCVaR": 0.5,
+  "riskMin": 0.3,
+  "contestedWeight": 0.35,
+  "wArea": 4,
+  "wTrapped": 4,
+  "wRobust": 1.5,
+  "wExits": 0.2,
+  "wHunger": 0,
+  "wFood": 0,
+  "wLength": 0,
+  "wHealth": 0,
+  "duelEnabled": true,
+  "duelMaxDepth": 4
+}

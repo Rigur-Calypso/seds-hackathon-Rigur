@@ -5,3 +5,8 @@ replays/
 profiles.json
 .DS_Store
 .env
+/app
+/server
+/arena
+tools/arena/arena
+results/

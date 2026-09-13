@@ -1,0 +1,5 @@
+# R4: boxed in the corner, the only exit is our own (non-duplicated) tail.
+you 100 0,0 0,1 1,1 1,0
+snake far 100 9,9 9,8 9,7
+food 5,5
+expect right
