@@ -1,5 +1,6 @@
 {
   "name": "royale",
+  "cpuCapMs": 50,
   "riskMean": 0.5,
   "riskCVaR": 0.5,
   "riskMin": 0,

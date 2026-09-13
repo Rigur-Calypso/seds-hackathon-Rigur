@@ -1,5 +1,6 @@
 {
   "name": "constrictor",
+  "cpuCapMs": 50,
   "riskMean": 0.2,
   "riskCVaR": 0.5,
   "riskMin": 0.3,

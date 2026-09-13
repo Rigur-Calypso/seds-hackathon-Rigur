@@ -141,8 +141,12 @@ func (s *Server) handleMove(w http.ResponseWriter, r *http.Request) {
 	d := s.eng.Decide(ctx, gs)
 	cancel()
 
-	writeJSON(w, api.MoveResponse{Move: d.Move})
 	elapsed := time.Since(start)
+	// Observability without touching the JSON body: clients ignore unknown
+	// headers, and `curl -D -` against the live URL shows what the snake did.
+	w.Header().Set("X-Snake-Decision", fmt.Sprintf("reason=%s depth=%d budget_ms=%d compute_ms=%d inflight=%d",
+		d.Reason, d.Depth, budget.Milliseconds(), elapsed.Milliseconds(), n))
+	writeJSON(w, api.MoveResponse{Move: d.Move})
 	g.Record(gs.Turn, elapsed, d.Move, fixture.Format(gs))
 	if gs.Turn%10 == 0 {
 		s.games.ObserveOpponents(gs, false)

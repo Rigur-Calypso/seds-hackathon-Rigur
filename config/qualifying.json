@@ -1,5 +1,6 @@
 {
   "name": "qualifying",
+  "cpuCapMs": 50,
   "riskMean": 0.25,
   "riskCVaR": 0.75,
   "riskMin": 0,
