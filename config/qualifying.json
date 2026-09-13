@@ -1,0 +1,9 @@
+{
+  "name": "qualifying",
+  "riskMean": 0.25,
+  "riskCVaR": 0.75,
+  "riskMin": 0,
+  "cvarAlpha": 0.25,
+  "duelEnabled": true,
+  "duelMaxDepth": 4
+}

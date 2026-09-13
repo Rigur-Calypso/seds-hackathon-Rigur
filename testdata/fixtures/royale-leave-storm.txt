@@ -1,0 +1,8 @@
+# Royale: left is storm; up/down stay in the safe rectangle.
+rules royale
+turn 60
+safe 2 2 8 8
+you 100 2,5 3,5 4,5
+snake a 100 6,7 6,6 6,5
+food 5,2
+reject left

@@ -1,0 +1,15 @@
+{
+  "name": "duel",
+  "riskMean": 0.2,
+  "riskCVaR": 0.3,
+  "riskMin": 0.5,
+  "cvarAlpha": 0.25,
+  "wKill": 1.2,
+  "wOppTrapped": 0.8,
+  "wCentre": 0.5,
+  "wInHazard": 0.5,
+  "wShrinkRobust": 0.4,
+  "wHazardWeapon": 0.4,
+  "duelEnabled": true,
+  "duelMaxDepth": 6
+}

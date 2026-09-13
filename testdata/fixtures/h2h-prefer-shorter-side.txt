@@ -1,0 +1,6 @@
+# Up and left are reachable by a LONGER head; right is only reachable by a shorter one.
+you 100 5,5 5,4 5,3 5,2
+snake big 100 4,6 4,7 4,8 4,9 4,10
+snake small 100 7,5 8,5 9,5
+food 0,0
+expect right

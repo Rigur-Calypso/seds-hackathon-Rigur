@@ -1,0 +1,28 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test ./...
+      - name: build
+        run: go build -o app ./cmd/server
+      - name: licence boundary (CLAUDE.md §8) — server must not link AGPL rules
+        run: |
+          if go list -deps ./cmd/server | grep -q BattlesnakeOfficial; then
+            echo "cmd/server imports BattlesnakeOfficial/rules (AGPL)"; exit 1
+          fi
+      - name: arena + differential tests (separate module)
+        working-directory: tools/arena
+        run: go test ./...
