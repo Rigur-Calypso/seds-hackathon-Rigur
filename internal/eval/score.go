@@ -125,20 +125,20 @@ func Heuristic(prev, next *board.State, p *config.Params) float64 {
 
 	if !next.Rules.Constrictor {
 		health := me.Health
-		fd, grow := v.FoodDist[0], v.FoodDist[0]
+		hungerDist, growthDist := v.FoodDist[0], v.FoodDist[0]
 		if p.WinnableFood {
 			// P3: plan hunger and growth around food we win and can leave, not food
 			// an equal-or-longer snake reaches first or that seals us in. Growth only
 			// counts winnable food. Hunger falls back to the nearest reachable food
 			// when none is winnable: a contested meal still beats starving, and the
 			// span slack (health - (W+H)) would under-state the urgency.
-			grow = v.WinFoodDist[0]
-			if grow >= 0 {
-				fd = grow
+			growthDist = v.WinFoodDist[0]
+			if growthDist >= 0 {
+				hungerDist = growthDist
 			}
 		}
-		slack := health - fd
-		if fd < 0 {
+		slack := health - hungerDist
+		if hungerDist < 0 {
 			slack = health - int(span)
 		}
 		if p.HungerMargin > 0 && slack < p.HungerMargin {
@@ -159,8 +159,8 @@ func Heuristic(prev, next *board.State, p *config.Params) float64 {
 		switch {
 		case ate:
 			h += want
-		case fd >= 0:
-			h += want * (1 - float64(fd)/span)
+		case growthDist >= 0:
+			h += want * (1 - float64(growthDist)/span)
 		}
 		if p.LengthScale > 0 {
 			h += p.WLength * math.Tanh(float64(L-maxOppLen)/p.LengthScale)
