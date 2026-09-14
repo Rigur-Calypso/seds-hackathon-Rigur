@@ -84,11 +84,16 @@ func (se *Searcher) heuristic(v *sim.Result) float64 {
 	}
 
 	h += p.WArea * (area(0) - bestOpp)
-	if reach := v.Reach(0); reach < L {
-		h -= p.WTrapped * (1 - float64(reach)/float64(L))
+	// Self-coiling: with the cliff at exactly our length, a long snake with
+	// "just enough" room feels nothing, folds into its territory and is sealed
+	// a few turns later. SpaceFactor > 1 starts the penalty earlier and ramps it
+	// smoothly; 1 is v1's term.
+	need := float64(L) * p.SpaceFactor
+	if reach := float64(v.Reach(0)); reach < need {
+		h -= p.WTrapped * (1 - reach/need)
 	}
-	if rb := v.Robust; p.WRobust != 0 && rb < L {
-		h -= p.WRobust * (1 - float64(rb)/float64(L))
+	if rb := float64(v.Robust); p.WRobust != 0 && rb < need {
+		h -= p.WRobust * (1 - rb/need)
 	}
 	exits := v.SafeExits[0]
 	if exits > 2 {

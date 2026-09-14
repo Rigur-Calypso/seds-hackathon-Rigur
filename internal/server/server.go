@@ -195,6 +195,8 @@ func (s *Server) handleEnd(w http.ResponseWriter, r *http.Request) {
 			// Fatal board in fixture DSL: paste into testdata/fixtures, add the
 			// correct "expect" line, never delete it.
 			attrs = append(attrs, "fatal_turn", lastTurn, "fatal_move", lastMove, "fatal_board", lastBoard)
+			// The positions leading up to the loss, for tools/lossreport.
+			attrs = append(attrs, "recent_boards", g.Recent())
 		}
 	}
 	s.log.Info("end", attrs...)

@@ -142,6 +142,50 @@ func TestConcurrentGames(t *testing.T) {
 	}
 }
 
+// A game that is not won logs the positions leading up to its end, oldest
+// first, so cmd/lossreport can find the decision that sealed it.
+func TestEndLogsRecentBoards(t *testing.T) {
+	ps, err := config.Load(seds.ConfigFS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf strings.Builder
+	var mu sync.Mutex
+	w := writerFunc(func(p []byte) (int, error) { mu.Lock(); defer mu.Unlock(); return buf.Write(p) })
+	s := New(decide.New(ps, search.Evaluate), slog.New(slog.NewJSONHandler(w, nil)), "test", nil)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+	for turn := 1; turn <= 3; turn++ {
+		post(t, ts.URL+"/move", fmt.Sprintf(good, "recent", turn))
+	}
+	post(t, ts.URL+"/end", fmt.Sprintf(good, "recent", 4))
+	mu.Lock()
+	logs := buf.String()
+	mu.Unlock()
+	for _, line := range strings.Split(logs, "\n") {
+		var e struct {
+			Msg    string `json:"msg"`
+			Recent []struct {
+				Turn  int    `json:"turn"`
+				Move  string `json:"move"`
+				Board string `json:"board"`
+			} `json:"recent_boards"`
+		}
+		if json.Unmarshal([]byte(line), &e) != nil || e.Msg != "end" {
+			continue
+		}
+		if len(e.Recent) != 3 || e.Recent[0].Turn != 1 || e.Recent[2].Turn != 3 || e.Recent[2].Move == "" || !strings.Contains(e.Recent[2].Board, "you ") {
+			t.Fatalf("recent_boards: %+v", e.Recent)
+		}
+		return
+	}
+	t.Fatalf("no end line in logs:\n%s", logs)
+}
+
+type writerFunc func([]byte) (int, error)
+
+func (f writerFunc) Write(p []byte) (int, error) { return f(p) }
+
 func TestDecisionHeader(t *testing.T) {
 	ts := testServer(t)
 	res, err := http.Post(ts.URL+"/move", "application/json", strings.NewReader(fmt.Sprintf(good, "hdr", 3)))
