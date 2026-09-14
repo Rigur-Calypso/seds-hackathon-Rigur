@@ -124,6 +124,12 @@ func (se *Searcher) heuristic(v *sim.Result) float64 {
 		if L > maxOppLen+p.LengthLead {
 			want *= p.SatiatedFoodScale
 		}
+		if maxOppLen > 0 && L <= maxOppLen {
+			// Not strictly longest: every head-to-head is lost or traded (R2), and
+			// a longer opponent can shadow us indefinitely. Growth must outweigh
+			// the noise of a deep paranoid search, which v1's one-ply choice never had.
+			want *= p.FoodDeficitScale
+		}
 		switch {
 		case me.Len > se.rootLen:
 			h += want

@@ -61,6 +61,7 @@ type Config struct {
 	Grid            string  `json:"grid,omitempty"`
 	Examples        int     `json:"-"`
 	DumpLosses      bool    `json:"-"`
+	TraceSeed       int64   `json:"-"`
 }
 
 func defaultConfig() Config {
@@ -304,6 +305,15 @@ func buildJobs(cfg *Config) []job {
 			j.opps = append(j.opps, names[(g+k-1)%len(names)])
 		}
 		jobs[g] = j
+	}
+	if cfg.TraceSeed != 0 {
+		for _, j := range jobs {
+			if j.seed == cfg.TraceSeed {
+				j.idx = 0
+				return []job{j}
+			}
+		}
+		return nil
 	}
 	return jobs
 }
@@ -561,6 +571,7 @@ func main() {
 	flag.IntVar(&cfg.Examples, "examples", 0, "with --diagnose: print N fatal boards per (cause, horizon) to stderr")
 	flag.StringVar(&cfg.Grid, "grid", "", `run across settings, e.g. "shrink=15,25;food-spawn=10,25;hazard-damage=14,28"`)
 	flag.BoolVar(&cfg.DumpLosses, "dump-losses", false, "print the fatal board of every loss (fixture DSL)")
+	flag.Int64Var(&cfg.TraceSeed, "trace", 0, "play only the game with this seed (needs --games large enough to include it) and print every decision of seat 0 to stderr")
 	flag.Parse()
 	cfg.Seeds = nil
 	for _, f := range strings.Split(seeds, ",") {

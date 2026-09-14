@@ -124,6 +124,9 @@ type Params struct {
 	// arriving at the cheapest reachable food (storm damage charged) instead of
 	// health minus distance.
 	HazardHunger bool `json:"hazardHunger"`
+	// FoodDeficitScale multiplies the v2 food drive while we are not strictly
+	// the longest snake (1 = unchanged, identical to v1's term).
+	FoodDeficitScale float64 `json:"foodDeficitScale"`
 	// SearchEndgame (P4): when no opponent can ever reach our region, keep only
 	// the root moves a survival search proves last longest, up to EndgameHorizon
 	// turns, spending at most EndgameNodes resolutions.
@@ -207,6 +210,7 @@ func Defaults() Params {
 		SearchShrinkPessimistic: true,
 		SearchTTBits:            16,
 		PredictHungry:           35,
+		FoodDeficitScale:        1,
 		SearchEndgame:           false,
 		EndgameHorizon:          48,
 		EndgameNodes:            30000,
