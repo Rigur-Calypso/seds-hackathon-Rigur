@@ -95,6 +95,13 @@ func (se *Searcher) heuristic(v *sim.Result) float64 {
 	if rb := float64(v.Robust); p.WRobust != 0 && rb < need {
 		h -= p.WRobust * (1 - rb/need)
 	}
+	// Room that is not our own body waiting to free: a coil survives only by
+	// following its tail exactly, which one opponent or one meal breaks.
+	if p.WSelfReliance != 0 {
+		if fresh := float64(v.Reach(0) - v.OwnReleased[0]); fresh < float64(L) {
+			h -= p.WSelfReliance * (1 - fresh/float64(L))
+		}
+	}
 	exits := v.SafeExits[0]
 	if exits > 2 {
 		exits = 2

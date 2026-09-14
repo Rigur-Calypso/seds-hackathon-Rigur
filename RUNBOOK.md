@@ -77,10 +77,13 @@ Render dashboard → Logs. Every line is JSON.
 
 ## 7. Turning a loss into a fixture
 
-1. Copy `fatal_board` from the `end` log line.
-2. Save it as `testdata/fixtures/<short-name>.txt`, add `expect <move>` / `reject <move>`.
-3. `go test ./internal/decide/ -run TestFixtures`
-4. Never delete a fixture.
+1. Render → Logs → copy the `end` lines of lost games (they carry `recent_boards`: the last 12
+   positions and the moves we played) into a file, e.g. `losses.log`. Any prefix before the JSON is fine.
+2. `go run ./cmd/lossreport -in losses.log -out testdata/losses` — deep-searches every logged position
+   move by move and flags the turns where the played move was a proven loss while another was not.
+3. For each flagged file in `testdata/losses`: look at the board, uncomment the `reject` line (or write
+   `expect <move>`), move it to `testdata/fixtures/`.
+4. `go test ./internal/decide/ -run TestFixtures`. Never delete a fixture.
 
 During the unscored practice window: collect fixtures, **do not change code**.
 

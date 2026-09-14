@@ -130,6 +130,9 @@ type Params struct {
 	// SpaceFactor: the v2 trapped and sealable-space penalties start when our
 	// reachable (robust) space falls below SpaceFactor × length (1 = v1's term).
 	SpaceFactor float64 `json:"spaceFactor"`
+	// WSelfReliance (v2 eval): penalty when the room we can reach, not counting
+	// cells of our own body that only free as the tail moves, is below our length.
+	WSelfReliance float64 `json:"wSelfReliance"`
 	// SearchEndgame (P4): when no opponent can ever reach our region, keep only
 	// the root moves a survival search proves last longest, up to EndgameHorizon
 	// turns, spending at most EndgameNodes resolutions.

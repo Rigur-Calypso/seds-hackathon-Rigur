@@ -16,6 +16,10 @@ type Result struct {
 	// Without hazards it is health - FoodDist; with them it charges the storm
 	// crossed on the way (R6), which a distance cannot.
 	FoodHealth       [MaxSnakes]int
+	// OwnReleased counts the cells in a snake's reach that are its own body
+	// now and only open as its tail moves (R4). A coiled snake's room is mostly
+	// this: it survives only by following its own tail exactly.
+	OwnReleased [MaxSnakes]int
 	SafeExits        [MaxSnakes]int
 	ExitsUncontested [MaxSnakes]int
 	Trapped          [MaxSnakes]bool
@@ -208,6 +212,9 @@ func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
 		m := f.mask[c]
 		if m == 0 || f.dist[c] == 0 {
 			continue
+		}
+		if b := f.bodyOf[c]; b >= 0 && m&(1<<uint(b)) != 0 {
+			r.OwnReleased[b]++
 		}
 		if bits.OnesCount8(m) == 1 {
 			r.Guaranteed[bits.TrailingZeros8(m)]++
