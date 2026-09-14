@@ -44,6 +44,7 @@ type Fill struct {
 	fr, nx                      [MaxSnakes][]node
 	disc, low, sub, sep, parent []int32
 	stack                       []frame
+	visited                     []int32
 }
 
 func fit32(s []int32, n int) []int32 {
@@ -132,24 +133,26 @@ func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
 
 	hz := g.Hazards(st.Turn)
 	dmg := g.Damage
+	// Locals: the loop appends to f.nx, so field loads through f would not be hoisted.
+	dist, mask, freeAt, bodyOf, foods, nbr := f.dist, f.mask, f.freeAt, f.bodyOf, st.food, g.Nbr
 	for t := int32(1); ; t++ {
 		progressed := false
 		for j := 0; j < ns; j++ {
-			f.nx[j] = f.nx[j][:0]
+			next := f.nx[j][:0]
 			bit := uint8(1) << uint(j)
 			for _, nd := range f.fr[j] {
-				nb := &g.Nbr[nd.c]
+				nb := &nbr[nd.c]
 				for d := 0; d < 4; d++ {
 					c := int32(nb[d])
 					if c < 0 {
 						continue
 					}
-					dc := f.dist[c]
+					dc := dist[c]
 					if dc >= 0 && dc < t {
 						continue // claimed strictly earlier
 					}
-					food := st.food[c]
-					if dc == t && f.mask[c]&bit != 0 {
+					food := foods[c]
+					if dc == t && mask[c]&bit != 0 {
 						// Already arrived this step; a healthier equal-length path
 						// to a first food still improves FoodHealth.
 						if food && nd.eaten == 0 && int(nd.health-1) > r.FoodHealth[j] {
@@ -157,9 +160,9 @@ func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
 						}
 						continue
 					}
-					if fa := f.freeAt[c]; fa > 0 {
+					if fa := freeAt[c]; fa > 0 {
 						need := fa
-						if int(f.bodyOf[c]) == j {
+						if int(bodyOf[c]) == j {
 							need += nd.eaten // growth delays our own tail
 						}
 						if t < need {
@@ -186,13 +189,14 @@ func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
 						e++
 					}
 					if dc < 0 {
-						f.dist[c] = t
+						dist[c] = t
 					}
-					f.mask[c] |= bit
-					f.nx[j] = append(f.nx[j], node{c, h, e})
+					mask[c] |= bit
+					next = append(next, node{c, h, e})
 					progressed = true
 				}
 			}
+			f.nx[j] = next
 		}
 		f.fr, f.nx = f.nx, f.fr
 		if !progressed {
@@ -276,59 +280,66 @@ func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
 func (f *Fill) articulation(st *State, focus, reach int) (robust, cuts int) {
 	g := st.G
 	n := g.Cells
-	f.disc, f.low, f.sub, f.sep, f.parent = fit32(f.disc, n), fit32(f.low, n), fit32(f.sub, n), fit32(f.sep, n), fit32(f.parent, n)
+	if len(f.disc) != n {
+		// disc and sep are all zero between calls (only visited cells are ever
+		// written, and they are cleared below), so resizing is the only reset.
+		f.disc, f.sep = make([]int32, n), make([]int32, n)
+	}
+	f.low, f.sub, f.parent = fit32(f.low, n), fit32(f.sub, n), fit32(f.parent, n)
+	disc, low, sub, sep, parent := f.disc, f.low, f.sub, f.sep, f.parent
+	mask, dist, nbr := f.mask, f.dist, g.Nbr
 	bit := uint8(1) << uint(focus)
 	root := int32(st.S[focus].Head())
-	in := func(c int32) bool { return c == root || (f.mask[c]&bit != 0 && f.dist[c] > 0) }
-	for i := 0; i < n; i++ {
-		f.disc[i], f.sep[i] = 0, 0
-	}
 	timer := int32(1)
-	f.disc[root], f.low[root], f.sub[root], f.parent[root] = 1, 1, 1, -1
+	disc[root], low[root], sub[root], parent[root] = 1, 1, 1, -1
+	visited := append(f.visited[:0], root)
 	stack := append(f.stack[:0], frame{root, 0})
 	for len(stack) > 0 {
 		top := &stack[len(stack)-1]
 		if top.d < 4 {
-			nb := int32(g.Nbr[top.c][top.d])
+			nb := int32(nbr[top.c][top.d])
 			top.d++
-			if nb < 0 || !in(nb) {
+			// In the region: the head, or a cell this snake reaches (R3 heads apart).
+			if nb < 0 || (nb != root && (mask[nb]&bit == 0 || dist[nb] <= 0)) {
 				continue
 			}
-			if f.disc[nb] == 0 {
+			if disc[nb] == 0 {
 				timer++
-				f.disc[nb], f.low[nb], f.sub[nb], f.parent[nb] = timer, timer, 1, top.c
+				disc[nb], low[nb], sub[nb], parent[nb] = timer, timer, 1, top.c
+				visited = append(visited, nb)
 				stack = append(stack, frame{nb, 0})
-			} else if nb != f.parent[top.c] && f.disc[nb] < f.low[top.c] {
-				f.low[top.c] = f.disc[nb]
+			} else if nb != parent[top.c] && disc[nb] < low[top.c] {
+				low[top.c] = disc[nb]
 			}
 			continue
 		}
 		c := top.c
 		stack = stack[:len(stack)-1]
-		par := f.parent[c]
+		par := parent[c]
 		if par < 0 {
 			continue
 		}
-		if f.low[c] < f.low[par] {
-			f.low[par] = f.low[c]
+		if low[c] < low[par] {
+			low[par] = low[c]
 		}
-		f.sub[par] += f.sub[c]
-		if par != root && f.low[c] >= f.disc[par] {
-			f.sep[par] += f.sub[c]
+		sub[par] += sub[c]
+		if par != root && low[c] >= disc[par] {
+			sep[par] += sub[c]
 		}
 	}
 	f.stack = stack
 
 	worst := 0
-	for c := 0; c < n; c++ {
-		if f.sep[c] == 0 {
-			continue
+	for _, c := range visited {
+		if sep[c] != 0 {
+			cuts++
+			if pocket := int(sep[c]) + 1; pocket > worst && f.sealable(g, int(c), bit) {
+				worst = pocket
+			}
 		}
-		cuts++
-		if pocket := int(f.sep[c]) + 1; pocket > worst && f.sealable(g, c, bit) {
-			worst = pocket
-		}
+		disc[c], sep[c] = 0, 0
 	}
+	f.visited = visited
 	robust = reach - worst
 	if robust < 0 {
 		robust = 0

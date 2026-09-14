@@ -253,9 +253,12 @@ func loadEngine(cfg *Config, path string) (*decide.Engine, error) {
 	}
 	if cfg.Nodes > 0 {
 		for _, n := range config.Names {
-			p := *ps.Get(n)
-			p.SearchNodes = cfg.Nodes
-			ps.Set(n, &p)
+			// A profile that sets its own searchNodes keeps it, so a candidate can
+			// be measured at a different budget from its opponents.
+			if p := *ps.Get(n); p.SearchNodes == 0 {
+				p.SearchNodes = cfg.Nodes
+				ps.Set(n, &p)
+			}
 		}
 	}
 	return decide.New(ps, search.Evaluate), nil
