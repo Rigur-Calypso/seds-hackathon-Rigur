@@ -89,7 +89,14 @@ func (se *Searcher) heuristic(v *sim.Result) float64 {
 	// a few turns later. SpaceFactor > 1 starts the penalty earlier and ramps it
 	// smoothly; 1 is v1's term.
 	need := float64(L) * p.SpaceFactor
-	if reach := float64(v.Reach(0)); reach < need {
+	reach := float64(v.Reach(0))
+	if p.SpaceSafe {
+		// Only room we hold: cells we reach strictly first, plus ties we win by
+		// being strictly longer (R2). A shorter snake with "enough" contested room
+		// is squeezed shut by the longer ones (arena trace, seed 42000126).
+		reach = float64(v.Guaranteed[0] + v.Attack[0])
+	}
+	if reach < need {
 		h -= p.WTrapped * (1 - reach/need)
 	}
 	if rb := float64(v.Robust); p.WRobust != 0 && rb < need {

@@ -130,6 +130,9 @@ type Params struct {
 	// SpaceFactor: the v2 trapped and sealable-space penalties start when our
 	// reachable (robust) space falls below SpaceFactor × length (1 = v1's term).
 	SpaceFactor float64 `json:"spaceFactor"`
+	// SpaceSafe: the trapped penalty measures only room we hold (reached strictly
+	// first, or tied while strictly longer) instead of all reachable room.
+	SpaceSafe bool `json:"spaceSafe"`
 	// WSelfReliance (v2 eval): penalty when the room we can reach, not counting
 	// cells of our own body that only free as the tail moves, is below our length.
 	WSelfReliance float64 `json:"wSelfReliance"`
