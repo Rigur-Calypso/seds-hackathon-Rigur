@@ -14,10 +14,13 @@ import (
 // Budget derives the cooperative search deadline from the request (R10):
 //
 //	margin = max(NetworkMarginMs, measuredOverhead + OverheadPadMs)
-//	budget = min(timeout - margin, CPUCapMs), scaled by 2/(inflight+1) under
+//	budget = min(timeout - margin, CPUCapMs), divided by inflight under
 //	contention, floored at MinBudgetMs.
 //
-// Under contention we shrink compute, never the fallback path.
+// Under contention we shrink compute, never the fallback path. Concurrent
+// requests share one throttled CPU on the free tier, so the budget is split
+// evenly: a live 4-snake game with the gentler 2/(inflight+1) split timed out on
+// 44 of 1 354 moves (DEVLOG §11.10).
 func Budget(timeoutMs int, p *config.Params, inflight, overheadMs int) time.Duration {
 	if timeoutMs <= 0 {
 		timeoutMs = 500
@@ -31,7 +34,7 @@ func Budget(timeoutMs int, p *config.Params, inflight, overheadMs int) time.Dura
 		b = p.CPUCapMs
 	}
 	if inflight > 1 {
-		b = b * 2 / (inflight + 1)
+		b /= inflight
 	}
 	// The floor keeps a useful minimum search, but never above half the request
 	// timeout: with a tiny timeout the precomputed fallback is the answer.

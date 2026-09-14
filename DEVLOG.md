@@ -810,3 +810,25 @@ It passed the gate in 4-snake self-play (+1.17), so it was confirmed on the othe
 **Not promoted.** The gain exists only against copies of itself and leans negative against v1 and the
 zoo; the rule is no regression on any pool. `foodDeficitScale` stays 1. The shipped v2 is exactly the
 engine measured in §11.4 and §11.8.
+
+### 11.10 Live verification after the merge — latency fix (ops-012)
+
+Render redeployed `67582b4` within minutes; `/move` answered `reason=search depth=4` with 2 300–8 200
+nodes. Real games with the official CLI against the live URL, from India:
+
+| Live game | Moves | p50 | p90 | p99 | max | ≥ 500 ms (timeout) |
+|---|---|---|---|---|---|---|
+| Duel, both snakes = our URL, 237 turns | 707 | 197 | 216 | 302 | 400 | 0 |
+| 4-snake, all four = our URL, 364 turns | 1 354 | 211 | 321 | **501** | **501** | **44** |
+
+With four concurrent requests the throttled free-tier CPU stalled: `compute_ms` reached 220–244 ms
+against a 50 ms budget, because v2 spends its whole deadline searching (v1 finished in ~1 ms).
+
+**Fix.** Shipped profiles: `cpuCapMs` 50 → 30 and `searchNodes` 2 500 (the arena measured v2 at
+2 000, so strength is kept while each CPU burst is bounded). The server splits the budget evenly
+across concurrent requests (`budget / inflight` instead of `2·budget / (inflight+1)`) and the budget
+floor `minBudgetMs` drops 25 → 8 ms so the split is not undone (v2 finishes depth 1 in well under a
+millisecond). `TestShippedCPUCap` now also requires a node cap on v2 profiles.
+
+Arena note: shipped profiles now carry `searchNodes`, so `--nodes` no longer changes them (it still
+sets profiles that have none); candidates derived from `config/*.json` inherit 2 500.

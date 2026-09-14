@@ -1,6 +1,6 @@
 {
   "name": "duel",
-  "cpuCapMs": 50,
+  "cpuCapMs": 30,
   "riskMean": 0.2,
   "riskCVaR": 0.3,
   "riskMin": 0.5,
@@ -13,5 +13,6 @@
   "wHazardWeapon": 0.4,
   "duelEnabled": true,
   "duelMaxDepth": 4,
-  "engine": "v2"
+  "engine": "v2",
+  "searchNodes": 2500
 }

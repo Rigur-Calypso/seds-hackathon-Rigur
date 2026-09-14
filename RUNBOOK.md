@@ -108,8 +108,10 @@ go run . --opponents v2 --nodes 2000 --profile-b cand.json  # candidate against 
 
 `--nodes N` caps the v2 search at N resolved joint actions per move for every engine whose
 profile does not set `searchNodes` itself. Without `--budget` the arena is then fully
-deterministic, so paired A/B runs are exact. 2 000 nodes is roughly what Render's free tier
-affords in the 50 ms compute cap; a dedicated core does about 10–15 000.
+deterministic, so paired A/B runs are exact. The shipped profiles set `searchNodes` 2 500 (live
+latency fix, DEVLOG §11.10), so `--nodes` does not change them or candidates derived from them; to
+measure a different budget, set `searchNodes` in the candidate JSON. A dedicated core does about
+10–15 000 nodes in 50 ms.
 
 ## 10. Rehearsal log
 

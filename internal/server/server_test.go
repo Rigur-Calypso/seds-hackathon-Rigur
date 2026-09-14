@@ -162,8 +162,14 @@ func TestShippedCPUCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, n := range config.Names {
-		if got := ps.Get(n).CPUCapMs; got > 60 {
+		p := ps.Get(n)
+		if got := p.CPUCapMs; got > 60 {
 			t.Fatalf("profile %s cpuCapMs=%d; live Render measurements show stalls above ~60 ms", n, got)
+		}
+		// v2 searches until the deadline; on a throttled CPU the burst itself causes
+		// stalls, so shipped profiles also cap nodes (DEVLOG §11.10).
+		if p.Engine == "v2" && (p.SearchNodes <= 0 || p.SearchNodes > 5000) {
+			t.Fatalf("profile %s searchNodes=%d; want a cap in (0, 5000]", n, p.SearchNodes)
 		}
 	}
 }
@@ -176,8 +182,8 @@ func TestBudget(t *testing.T) {
 	if b := Budget(500, &p, 1, 300); b != 160*time.Millisecond {
 		t.Fatalf("measured overhead must widen the margin: %v", b)
 	}
-	if b := Budget(500, &p, 4, 0); b >= 220*time.Millisecond {
-		t.Fatalf("contention must shrink the budget: %v", b)
+	if b := Budget(500, &p, 4, 0); b != 55*time.Millisecond {
+		t.Fatalf("contention must split the budget evenly (220/4): %v", b)
 	}
 	if b := Budget(100, &p, 1, 0); b != time.Duration(p.MinBudgetMs)*time.Millisecond {
 		t.Fatalf("floor: %v", b)

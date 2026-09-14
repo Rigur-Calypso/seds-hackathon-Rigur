@@ -1,6 +1,6 @@
 {
   "name": "constrictor",
-  "cpuCapMs": 50,
+  "cpuCapMs": 30,
   "riskMean": 0.2,
   "riskCVaR": 0.5,
   "riskMin": 0.3,
@@ -15,5 +15,6 @@
   "wHealth": 0,
   "duelEnabled": true,
   "duelMaxDepth": 4,
-  "engine": "v2"
+  "engine": "v2",
+  "searchNodes": 2500
 }
