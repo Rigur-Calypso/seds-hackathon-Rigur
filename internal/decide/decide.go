@@ -24,6 +24,7 @@ const (
 	ReasonFallback  Reason = "fallback"
 	ReasonEvaluated Reason = "tvae"
 	ReasonDuel      Reason = "duel"
+	ReasonSearch    Reason = "search"
 	ReasonPanic     Reason = "panic"
 )
 

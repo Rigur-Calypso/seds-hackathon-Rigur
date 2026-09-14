@@ -87,6 +87,47 @@ type Params struct {
 	// depth-3 paranoid search loses to TVAE head-to-head (41.5%), depth 4 beats it (55%).
 	DuelMinDepth int     `json:"duelMinDepth"`
 	PlyStep      float64 `json:"plyStep"` // terminal ordering: win sooner / lose later
+
+	// Engine selects the decision engine: "v1" (TVAE envelope + duel search) or
+	// "v2" (internal/brain: deep turn-based search on the fast sim state).
+	Engine string `json:"engine"`
+	// v2 search. Depth counts whole simultaneous turns.
+	SearchMaxDepth int `json:"searchMaxDepth"`
+	// SearchNodes caps resolved joint actions per decision (0 = deadline only).
+	// A cap makes arena runs reproducible without a wall-clock budget.
+	SearchNodes int `json:"searchNodes"`
+	// Opponents whose heads are within 2·depth+SearchAdvSlack of ours choose
+	// adversarial replies (at most SearchMaxAdv, nearest first); the others play
+	// one predicted move.
+	SearchMaxAdv   int `json:"searchMaxAdv"`
+	SearchAdvSlack int `json:"searchAdvSlack"`
+	// SearchExtensions: leaves with an equal-or-longer head within two cells are
+	// extended by a turn, at most this many times per path.
+	SearchExtensions int `json:"searchExtensions"`
+	// SearchShrinkPessimistic: future royale shrinks hazard the union of the four
+	// possible rings (R8) instead of keeping the supplied ring.
+	SearchShrinkPessimistic bool `json:"searchShrinkPessimistic"`
+	SearchTTBits            int  `json:"searchTTBits"` // transposition table size, log2 entries
+	// PredictHungry: a predicted opponent at or below this health heads for food.
+	PredictHungry int `json:"predictHungry"`
+	// SearchRationalOpp: adversaries that are not longer than us never step onto
+	// a cell next to our head (they would lose or trade the head-to-head, R2).
+	// Off = fully paranoid replies.
+	SearchRationalOpp bool `json:"searchRationalOpp"`
+	// HazardHunger: on hazard boards, hunger urgency uses the health left on
+	// arriving at the cheapest reachable food (storm damage charged) instead of
+	// health minus distance.
+	HazardHunger bool `json:"hazardHunger"`
+	// SearchEndgame (P4): when no opponent can ever reach our region, keep only
+	// the root moves a survival search proves last longest, up to EndgameHorizon
+	// turns, spending at most EndgameNodes resolutions.
+	SearchEndgame  bool `json:"searchEndgame"`
+	EndgameHorizon int  `json:"endgameHorizon"`
+	EndgameNodes   int  `json:"endgameNodes"`
+	// EndgameAlways runs the survival filter even when regions still touch, with
+	// opponents on their predicted moves: a move that cannot outlive the others
+	// even then is a self-trap.
+	EndgameAlways bool `json:"endgameAlways"`
 }
 
 // Defaults are the qualifying-style baseline every profile starts from.
@@ -149,6 +190,19 @@ func Defaults() Params {
 		DuelMaxDepth: 4,
 		DuelMinDepth: 4,
 		PlyStep:      0.01,
+
+		Engine:                  "v1",
+		SearchMaxDepth:          20,
+		SearchNodes:             0,
+		SearchMaxAdv:            3,
+		SearchAdvSlack:          1,
+		SearchExtensions:        2,
+		SearchShrinkPessimistic: true,
+		SearchTTBits:            16,
+		PredictHungry:           35,
+		SearchEndgame:           false,
+		EndgameHorizon:          48,
+		EndgameNodes:            30000,
 	}
 }
 

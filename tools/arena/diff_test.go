@@ -13,7 +13,39 @@ import (
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/board"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/legal"
 	ours "github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/rules"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/sim"
 )
+
+// simAgrees applies one official turn to the fast search state (v2) and
+// reports the first difference in snakes or food, or "".
+func simAgrees(cur, want *board.State, dirs []board.Dir) string {
+	st, ok := sim.New(cur, sim.NewGame(cur, sim.ShrinkKeep))
+	if !ok {
+		return "sim.New refused an official position"
+	}
+	var mv sim.Moves
+	copy(mv[:], dirs)
+	var u sim.Undo
+	st.Make(&mv, &u)
+	got := st.ToBoard(cur.Rules)
+	for i := range want.Snakes {
+		w, g := &want.Snakes[i], &got.Snakes[i]
+		if w.Alive() != g.Alive() {
+			return "alive differs for snake " + w.ID
+		}
+		if w.Alive() && (w.Health != g.Health || !reflect.DeepEqual(w.Body, g.Body)) {
+			return "body or health differs for snake " + w.ID
+		}
+	}
+	if !reflect.DeepEqual(sortedPoints(got.Food), sortedPoints(want.Food)) {
+		return "food differs"
+	}
+	st.Unmake(&u)
+	if st.Hash != st.ComputeHash() {
+		return "hash not restored"
+	}
+	return ""
+}
 
 const diffShrink = 5 // fast shrink so R8 is exercised constantly
 
@@ -128,6 +160,9 @@ func TestResolverMatchesOfficialRules(t *testing.T) {
 							}
 						}
 					}
+				}
+				if diff := simAgrees(cur, want, dirs); diff != "" {
+					t.Fatalf("sim vs official: %s %dx%d seed %d turn %d: %s (moves %v)", c.name, c.w, c.h, seed, bs.Turn, diff, dirs)
 				}
 				got := ours.Resolve(cur, dirs, opt)
 				for i := range want.Snakes {
