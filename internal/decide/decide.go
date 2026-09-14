@@ -42,6 +42,7 @@ type Decision struct {
 	Profile string
 	Scores  []Score
 	Depth   int
+	Nodes   int64 // v2: joint actions resolved by the search
 	Err     string
 }
 
@@ -114,7 +115,7 @@ func (e *Engine) Decide(ctx context.Context, gs *api.GameState) (d Decision) {
 	move, info, err := e.Eval(ctx, s, p, safe)
 	if err != nil {
 		d.Err = err.Error()
-		d.Scores, d.Depth = info.Scores, info.Depth
+		d.Scores, d.Depth, d.Nodes = info.Scores, info.Depth, info.Nodes
 		return d
 	}
 	d.Move = move.String()
@@ -122,6 +123,6 @@ func (e *Engine) Decide(ctx context.Context, gs *api.GameState) (d Decision) {
 	if d.Reason == "" {
 		d.Reason = ReasonEvaluated
 	}
-	d.Scores, d.Depth = info.Scores, info.Depth
+	d.Scores, d.Depth, d.Nodes = info.Scores, info.Depth, info.Nodes
 	return d
 }

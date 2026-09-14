@@ -34,7 +34,7 @@ func round3(v float64) float64 {
 func Evaluate(ctx context.Context, s *board.State, p *config.Params, safe []board.Dir) (board.Dir, decide.Decision, error) {
 	if p.Engine == "v2" {
 		res, err := brain.Search(ctx, s, p, safe)
-		info := decide.Decision{Reason: decide.ReasonSearch, Depth: res.Depth}
+		info := decide.Decision{Reason: decide.ReasonSearch, Depth: res.Depth, Nodes: res.Nodes}
 		for _, rs := range res.Scores {
 			info.Scores = append(info.Scores, decide.Score{Move: rs.Dir.String(), Value: round3(rs.Value)})
 		}
