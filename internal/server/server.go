@@ -144,8 +144,8 @@ func (s *Server) handleMove(w http.ResponseWriter, r *http.Request) {
 	elapsed := time.Since(start)
 	// Observability without touching the JSON body: clients ignore unknown
 	// headers, and `curl -D -` against the live URL shows what the snake did.
-	w.Header().Set("X-Snake-Decision", fmt.Sprintf("reason=%s depth=%d budget_ms=%d compute_ms=%d inflight=%d",
-		d.Reason, d.Depth, budget.Milliseconds(), elapsed.Milliseconds(), n))
+	w.Header().Set("X-Snake-Decision", fmt.Sprintf("reason=%s depth=%d nodes=%d budget_ms=%d compute_ms=%d inflight=%d",
+		d.Reason, d.Depth, d.Nodes, budget.Milliseconds(), elapsed.Milliseconds(), n))
 	writeJSON(w, api.MoveResponse{Move: d.Move})
 	g.Record(gs.Turn, elapsed, d.Move, fixture.Format(gs))
 	if gs.Turn%10 == 0 {
@@ -158,7 +158,7 @@ func (s *Server) handleMove(w http.ResponseWriter, r *http.Request) {
 	}
 	s.log.Log(context.Background(), level, "move",
 		"game", gs.Game.ID, "turn", gs.Turn, "stage", st.String(), "profile", d.Profile,
-		"move", d.Move, "reason", string(d.Reason), "depth", d.Depth, "scores", d.Scores,
+		"move", d.Move, "reason", string(d.Reason), "depth", d.Depth, "nodes", d.Nodes, "scores", d.Scores,
 		"elapsed_ms", elapsed.Milliseconds(), "budget_ms", budget.Milliseconds(),
 		"inflight", n, "overhead_ms", g.OverheadMs(), "err", d.Err)
 }

@@ -11,9 +11,11 @@ package search
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/board"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/brain"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/config"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/decide"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/duel"
@@ -30,6 +32,21 @@ func round3(v float64) float64 {
 
 // Evaluate implements decide.Evaluator.
 func Evaluate(ctx context.Context, s *board.State, p *config.Params, safe []board.Dir) (board.Dir, decide.Decision, error) {
+	if p.Engine == "v2" {
+		res, err := brain.Search(ctx, s, p, safe)
+		info := decide.Decision{Reason: decide.ReasonSearch, Depth: res.Depth, Nodes: res.Nodes}
+		for _, rs := range res.Scores {
+			info.Scores = append(info.Scores, decide.Score{Move: rs.Dir.String(), Value: round3(rs.Value)})
+		}
+		switch {
+		case err == nil:
+			return res.Move, info, nil
+		case !errors.Is(err, brain.ErrUnsupported):
+			return safe[0], info, err
+		}
+		// Unsupported by the fast state (e.g. more than eight snakes): v1 below
+		// handles every position.
+	}
 	info := decide.Decision{Reason: decide.ReasonEvaluated}
 	cands, err := envelope.Evaluate(ctx, s, p, safe)
 	for _, c := range cands {

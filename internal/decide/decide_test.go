@@ -36,12 +36,19 @@ func TestFixtures(t *testing.T) {
 		t.Fatal("no fixtures")
 	}
 	ps := profiles(t)
+	v2 := ps.Clone()
+	for _, n := range config.Names {
+		p := *v2.Get(n)
+		p.Engine, p.SearchNodes = "v2", 20000
+		v2.Set(n, &p)
+	}
 	engines := []struct {
 		name string
 		eng  *decide.Engine
 	}{
 		{"fallback", decide.New(ps, nil)},
 		{"full", decide.New(ps, search.Evaluate)},
+		{"v2", decide.New(v2, search.Evaluate)},
 	}
 	for _, f := range fx {
 		for _, e := range engines {

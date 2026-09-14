@@ -12,5 +12,6 @@
   "wShrinkRobust": 0.4,
   "wHazardWeapon": 0.4,
   "duelEnabled": true,
-  "duelMaxDepth": 4
+  "duelMaxDepth": 4,
+  "engine": "v2"
 }

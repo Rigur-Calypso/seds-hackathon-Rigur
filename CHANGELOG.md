@@ -118,3 +118,38 @@ food-race certificates parked on branch `improve-008-food-race` (builds, tests p
 reported whether any cell was significant. New `promotionGate` in every paired report: mean points
 difference > 0, p < 0.05, bootstrap CI lower bound > 0, zero B timeouts; grid `promotionGate` requires
 every cell to pass. Three tests, written first. Server binary unchanged.
+
+## improve-011 — v2 engine: fast state + deep turn-based search (post-event rework)
+
+- `internal/sim`: allocation-free position, in-place `Make`/`Unmake` of one simultaneous turn
+  (65 ns), incremental hash, temporal Voronoi fill (2.0 µs on 11×11). Differential-tested against
+  `internal/rules` (10 414 turns) and the official engine (2 877 turns); fill identical to v1.
+- `internal/brain`: iterative-deepening paranoid alpha-beta over whole turns with locality-masked
+  opponents, transposition table, history/killer ordering, danger extensions, node cap and
+  cooperative deadline. Leaf value equals v1's heuristic (tested).
+- `engine` profile key; `search.Evaluate` dispatches; v1 remains the path for > 8 snakes.
+  Every profile switched to `"v2"`. A search without a deadline or node cap stops at
+  `searchNodesNoDeadline` (30 000) so no call is ever unbounded.
+- Arena: `--nodes`, opponents `v1`/`v2`, sim-vs-official differential. Decision log and
+  `X-Snake-Decision` carry `nodes`.
+- Behind flags, off: sealed-region survival filter, rational opponents, storm-aware hunger, PVS.
+
+Measured at 2 000 nodes per move, paired seeds (DEVLOG §11.4):
+- qualifying vs three v1 (200): 4.82 → **8.49 pts**, 22.5 → **70.0 %** wins, p = 1e-26, gate pass
+- qualifying vs zoo (500): 8.77 → **9.55 pts**, 84 → **94 %**, p = 3e-7, gate pass
+- bracket royale vs three v1 (200): 4.86 → **8.21 pts**, 22.5 → **60.5 %**, p = 2e-25
+- constrictor vs three v1 (100): 4.72 → **7.21 pts**, 3 → **55 %**, p = 7e-8, gate pass
+- final 19×19 duel vs v1 depth-4 search (100): 7.86 → **8.38 pts**, 45 → **58 %**, p = 0.026, gate pass
+  (duel profile switched to `"v2"`)
+- REJECTED (kept off) PVS: same values, +7 % nodes at depth 3
+
+### improve-011 addendum — 11×11 standard + duels scope
+
+- Scope: standard 4-snake 11×11 and 11×11 duels only; royale/constrictor/19×19 kept but untuned.
+- Duels 11×11, v2 vs v1 (200): 7.89 → **8.79 pts**, 46.5 → **69.5 %**, p = 5e-6, gate pass.
+- Real 50 ms budget, four concurrent games: p99 51.5 ms, 0 timeouts (4-snake and duels).
+- Arena `--trace SEED` (per-decision replay of one game).
+- REJECTED `foodDeficitScale` 3: +1.17 in 4-snake self-play but −0.19 vs v1, −0.07 vs zoo, +0.09 in duel
+  self-play (all n.s.) — no regression allowed on any pool; stays 1.
+- REJECTED `endgameAlways`: 0.00 pts; self-collisions 73 → 13 but head-to-heads 55 → 115.
+- MEASURED 10 000 vs 2 000 nodes, 4-snake self-play: +0.54 pts, p = 0.11 (hosting CPU matters).

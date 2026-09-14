@@ -29,6 +29,21 @@ and writing our own implementation is the only thing we did with any of them.
 | Regression tests from real game states | jfgodoy/battlesnake-tester (idea) | fatal-board logging in `/end` |
 | CVaR risk aggregation, TVAE envelope, metamorphic tests, cut-cell penalty | project planning review | `internal/envelope`, `*_test.go`, `internal/voronoi/cutcells.go` |
 
+## v2 engine (`internal/sim`, `internal/brain`)
+
+Textbook game-search techniques, implemented from their published descriptions:
+
+| Idea | Source | Where |
+|---|---|---|
+| Make/unmake with an undo record instead of copying positions | classic chess-programming practice | `internal/sim/make.go` |
+| Zobrist-style incremental position hashing (keys derived with the splitmix64 finaliser) | Zobrist (1970); Steele et al. splitmix64 | `internal/sim/sim.go` |
+| Iterative deepening alpha-beta with a transposition table and relative mate distances | Knuth & Moore (1975); standard engine practice | `internal/brain/search.go`, `tt.go` |
+| Paranoid search for multi-player games | Sturtevant & Korf (2000) | `internal/brain/search.go` |
+| History heuristic and killer moves for ordering | Schaeffer (1989); Akl & Newborn (1977) | `internal/brain/search.go` |
+| Principal-variation search (optional) | Marsland & Campbell (1982) | `internal/brain/search.go` |
+| Selective extensions for unstable leaves | standard engine practice (check extensions) | `danger()` in `internal/brain/search.go` |
+| Fewest-onward-exits ordering for the survival search | Warnsdorff's rule (1823) | `internal/brain/endgame.go` |
+
 ## Not referenced
 
 `JaxHodg/battlesnake` — its README claims minimax; the code contains none (CLAUDE.md §7).

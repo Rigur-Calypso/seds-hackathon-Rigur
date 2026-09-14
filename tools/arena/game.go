@@ -130,9 +130,10 @@ func playGame(cfg *Config, seed int64, seats []Seat) (GameResult, error) {
 			var mv string
 			if i == 0 {
 				dp, canDiagnose := seats[0].Policy.(deciding)
+				tracing := canDiagnose && cfg.TraceSeed != 0 && seed == cfg.TraceSeed
 				start := time.Now()
 				var d decide.Decision
-				if cfg.Diagnose && canDiagnose {
+				if (cfg.Diagnose || tracing) && canDiagnose {
 					d = dp.Decide(gs)
 					mv = d.Move
 				} else {
@@ -145,6 +146,9 @@ func playGame(cfg *Config, seed int64, seats []Seat) (GameResult, error) {
 				}
 				if cfg.Diagnose && canDiagnose {
 					trace = append(trace, recordDecision(gs, d))
+				}
+				if tracing {
+					traceLine(gs, d)
 				}
 				lastYou = gs
 			} else {

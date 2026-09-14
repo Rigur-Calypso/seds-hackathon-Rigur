@@ -55,11 +55,13 @@ type Config struct {
 	TimeoutMs       int     `json:"timeoutMs"`
 	Concurrency     int     `json:"concurrency"`
 	DuelDepth       int     `json:"duelDepth"`
+	Nodes           int     `json:"nodes"`
 	Bootstrap       int     `json:"bootstrap"`
 	Diagnose        bool    `json:"diagnose"`
 	Grid            string  `json:"grid,omitempty"`
 	Examples        int     `json:"-"`
 	DumpLosses      bool    `json:"-"`
+	TraceSeed       int64   `json:"-"`
 }
 
 func defaultConfig() Config {
@@ -250,7 +252,29 @@ func loadEngine(cfg *Config, path string) (*decide.Engine, error) {
 			ps.Set(n, &p)
 		}
 	}
+	if cfg.Nodes > 0 {
+		for _, n := range config.Names {
+			// A profile that sets its own searchNodes keeps it, so a candidate can
+			// be measured at a different budget from its opponents.
+			if p := *ps.Get(n); p.SearchNodes == 0 {
+				p.SearchNodes = cfg.Nodes
+				ps.Set(n, &p)
+			}
+		}
+	}
 	return decide.New(ps, search.Evaluate), nil
+}
+
+// withEngine is a copy of eng whose every profile uses the named engine
+// ("v1" or "v2"), so both generations can sit at one table.
+func withEngine(eng *decide.Engine, name string) *decide.Engine {
+	ps := eng.Profiles.Clone()
+	for _, n := range config.Names {
+		p := *ps.Get(n)
+		p.Engine = name
+		ps.Set(n, &p)
+	}
+	return decide.New(ps, search.Evaluate)
 }
 
 type job struct {
@@ -282,6 +306,15 @@ func buildJobs(cfg *Config) []job {
 		}
 		jobs[g] = j
 	}
+	if cfg.TraceSeed != 0 {
+		for _, j := range jobs {
+			if j.seed == cfg.TraceSeed {
+				j.idx = 0
+				return []job{j}
+			}
+		}
+		return nil
+	}
 	return jobs
 }
 
@@ -289,6 +322,7 @@ func runAll(cfg *Config, eng *decide.Engine, champion *decide.Engine, jobs []job
 	start := time.Now()
 	out := make([]GameResult, len(jobs))
 	ch := make(chan job)
+	generations := map[string]*decide.Engine{"v1": withEngine(champion, "v1"), "v2": withEngine(champion, "v2")}
 	var wg sync.WaitGroup
 	for w := 0; w < cfg.Concurrency; w++ {
 		wg.Add(1)
@@ -301,6 +335,8 @@ func runAll(cfg *Config, eng *decide.Engine, champion *decide.Engine, jobs []job
 					var p Policy
 					if o == "champion" || o == "self" {
 						p = enginePolicy{champion, budget}
+					} else if ge, ok := generations[o]; ok {
+						p = enginePolicy{ge, budget}
 					} else if zp, ok := zoo[o]; ok {
 						p = zp
 					} else {
@@ -529,11 +565,13 @@ func main() {
 	flag.IntVar(&cfg.TimeoutMs, "timeout", cfg.TimeoutMs, "timeout used to count timeouts (ms)")
 	flag.IntVar(&cfg.Concurrency, "concurrency", cfg.Concurrency, "parallel games")
 	flag.IntVar(&cfg.DuelDepth, "duel-depth", 0, "override duel search depth (0 = profile); also lowers duelMinDepth")
+	flag.IntVar(&cfg.Nodes, "nodes", 0, "v2 search node budget per decision for every engine (0 = profile); deterministic without --budget")
 	flag.IntVar(&cfg.Bootstrap, "bootstrap", cfg.Bootstrap, "bootstrap resamples for 95% confidence intervals")
 	flag.BoolVar(&cfg.Diagnose, "diagnose", false, "classify every loss by avoidability and last real choice")
 	flag.IntVar(&cfg.Examples, "examples", 0, "with --diagnose: print N fatal boards per (cause, horizon) to stderr")
 	flag.StringVar(&cfg.Grid, "grid", "", `run across settings, e.g. "shrink=15,25;food-spawn=10,25;hazard-damage=14,28"`)
 	flag.BoolVar(&cfg.DumpLosses, "dump-losses", false, "print the fatal board of every loss (fixture DSL)")
+	flag.Int64Var(&cfg.TraceSeed, "trace", 0, "play only the game with this seed (needs --games large enough to include it) and print every decision of seat 0 to stderr")
 	flag.Parse()
 	cfg.Seeds = nil
 	for _, f := range strings.Split(seeds, ",") {

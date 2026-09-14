@@ -71,7 +71,7 @@ Render dashboard → Logs. Every line is JSON.
 | Event | Meaning |
 |---|---|
 | `start` | all parsed settings (R10): check `shrinkEveryNTurns`, `hazardDamagePerTurn`, `timeout`, `stage` |
-| `move` | `reason` (`tvae`, `duel`, `forced`, `fallback`, `no_legal`, `panic`), `elapsed_ms`, `budget_ms`, `overhead_ms`, `scores` |
+| `move` | `reason` (`search` = v2 engine, `tvae`/`duel` = v1 engine, `forced`, `fallback`, `no_legal`, `panic`), `depth` (whole turns searched), `nodes`, `elapsed_ms`, `budget_ms`, `overhead_ms`, `scores` |
 | `end` | `result`; on a loss, `fatal_board` in fixture DSL |
 | level WARN `move` | a panic or a response later than budget+50 ms — investigate |
 
@@ -102,7 +102,14 @@ go run . --rules standard --snakes 4 --games 200            # qualifying report
 go run . --rules royale --snakes 4 --games 200              # bracket report
 go run . --rules royale --width 19 --height 19 --snakes 2 --games 200   # final report
 go run . --profile-a ../../config/qualifying.json --profile-b ../../config/qualifying.json --games 500 --paired   # null test
+go run . --opponents v1 --nodes 2000 --games 200            # the shipped engine against three v1 snakes
+go run . --opponents v2 --nodes 2000 --profile-b cand.json  # candidate against three v2 snakes, paired
 ```
+
+`--nodes N` caps the v2 search at N resolved joint actions per move for every engine whose
+profile does not set `searchNodes` itself. Without `--budget` the arena is then fully
+deterministic, so paired A/B runs are exact. 2 000 nodes is roughly what Render's free tier
+affords in the 50 ms compute cap; a dedicated core does about 10–15 000.
 
 ## 10. Rehearsal log
 

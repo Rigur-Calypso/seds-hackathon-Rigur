@@ -1,99 +1,55 @@
-# NEXT STEPS — what YOU do now, in order
+# NEXT STEPS — after the v2 engine (post-hackathon)
 
-**Final handover — 09:50 IST, 13 Sep.** Live bot `c5a53ec` = `known-good`, verified with a real
-4-snake game on the live URL: 1 265 moves, p99 134 ms, 0 failed requests. Behaviour is frozen.
+Written 14 Sep 2026. The hackathon is over; the target is Battlesnake **standard 11×11 (4 snakes)**
+and **11×11 duels**. `main` runs the v2 engine (DEVLOG §11). Royale and constrictor still work but are
+not tuned.
 
-> ⚠️ **Do not push or merge anything to `main` before or during matches.** Render redeploys and
-> restarts the snake on every merge. If something breaks, follow `RUNBOOK.md` §3 (`git revert`),
-> never `git reset --hard`.
+## A. Check the deploy (≈5 min, after every merge to `main`)
 
-Earlier notes (07:12): everything left is a task only a human with your accounts can do. All free, no card.
+```bash
+URL=https://seds-hackathon-rigur.onrender.com
+curl -s "$URL" | jq .            # "version" = first 7 characters of the latest main commit
+curl -s -D - -o /dev/null -X POST -H 'Content-Type: application/json' \
+  --data @testdata/payloads/standard_cli_turn.json "$URL/move" | grep X-Snake-Decision
+```
 
----
+Expect `reason=search` with `depth` ≥ 2 and `nodes` > 0. `reason=tvae` means the v1 engine answered
+(only expected with more than eight snakes).
 
-## A. Get it live (≈15 min) — do this first
+## B. Compete
 
-> ✅ **Render is live** at https://seds-hackathon-rigur.onrender.com — verified 07:55 IST
-> (version matched `known-good`; a real 4-snake CLI game against it: p99 137 ms, 0 failures).
-> Steps 1–2 are done; continue from step 3.
->
-> ✅ **Tuned for Render's CPU** (08:04, version `b9a95ac` = `known-good`): real games against the
-> live URL — 4 snakes 11×11: p99 137 ms; 1v1 19×19 (grand-final shape, 455 turns): p50 190 ms,
-> p99 307 ms, 0 failed requests. Check what the live snake is doing any time with:
-> `curl -s -D - -o /dev/null -X POST -H 'Content-Type: application/json' --data @testdata/payloads/royale19_cli_turn.json https://seds-hackathon-rigur.onrender.com/move`
-> and read the `X-Snake-Decision` header.
+1. play.battlesnake.com → your snake → make sure the URL is the Render URL.
+2. Join the **Standard** and **Duels** arenas.
+3. Keep-warm stays on (UptimeRobot 5-minute monitor + `keepwarm.yml`): Render free sleeps after 15 minutes.
 
-1. **Render** (skip if already connected): render.com → New → Web Service → pick
-   `seds-hackathon-Rigur` → Runtime **Go** → Build `go build -o app ./cmd/server` → Start `./app`
-   → Instance **Free** → Region **Singapore** → Auto-deploy **on**.
-2. When it says **Live**:
-   ```bash
-   curl -s https://YOUR-NAME.onrender.com | jq .
-   ```
-   Expect `"apiversion":"1"` and `"version"` = the first 7 characters of the latest commit on `main`.
-3. Open the same URL **on your phone using mobile data** (not venue wifi). You must see the JSON.
-4. Keep-warm, both of these:
-   ```bash
-   gh secret set SNAKE_URL --body "https://YOUR-NAME.onrender.com"
-   gh workflow run keepwarm
-   ```
-   Then uptimerobot.com → New monitor → HTTP(s) → your URL → every 5 minutes.
-   > Status 08:05: `SNAKE_URL` secret is set and a manual keepwarm run succeeded (07:27). No
-   > *scheduled* runs have appeared yet — GitHub cron often starts late — so the UptimeRobot
-   > monitor is the one to rely on. Check with `gh run list --workflow keepwarm.yml`.
-5. **play.battlesnake.com** → Create snake → paste the URL → run one practice game against
-   yourself. In Render → Logs you should see `start`, then `move` lines with `"reason":"tvae"`.
-6. **Backup**: koyeb.com → create one free service from the same repo, same build/start
-   commands. Write both URLs in `RUNBOOK.md` §0. Do not register the backup unless Render fails.
+## C. Turn every real loss into a test
 
-## B. Ask a mentor (≈5 min) — each answer removes a guess
+Render → Logs → the `end` line of a lost game has `fatal_board`. Save it as
+`testdata/fixtures/<name>.txt`, add `expect <move>` or `reject <move>`, run
+`go test ./internal/decide/ -run TestFixtures`. Never delete a fixture. `tools/arena --trace SEED`
+replays an arena game decision by decision.
 
-1. **Can I get one real `/move` request body?** Save it as `testdata/payloads/real_move.json` and
-   run `go test ./internal/api/` — proves the parser against their engine.
-2. Royale settings: `shrinkEveryNTurns` and `hazardDamagePerTurn` (we read them from every request
-   anyway, but it's good to know).
-3. Is there a turn cap? (If yes, being longest at the cap matters.)
-4. How many qualifying rounds? Is the bracket really best-of-1?
-5. Do games run on play.battlesnake.com (then Render is right) or on a laptop CLI at the venue
-   (then a local tunnel may have lower latency — see RUNBOOK §5)?
+## D. Hosting is the strength limit
 
-## C. Practice window — collect data, change nothing
+Render's free tier is about a tenth of a CPU. v2 plays better the more positions it searches per move
+(10 000 vs 2 000 nodes: +0.54 pts in 4-snake self-play, DEVLOG §11.8). Any free host that gives a full
+core — or `cloudflared tunnel` from the Mac during a session (RUNBOOK §5) — makes the same code
+stronger. A GPU does not help: the engine is CPU search, not a neural network.
 
-- Watch Render logs. Every lost game logs an `end` line with `fatal_board`. Copy it into
-  `testdata/fixtures/<short-name>.txt`, add one line `expect <correct move>` (or `reject <bad move>`),
-  run `go test ./internal/decide/`. **Never delete a fixture.**
-- Check two numbers on `move` lines:
-  - `elapsed_ms` should stay well under 300.
-  - `overhead_ms` is the measured network cost; the budget adapts to it automatically.
-- A `WARN` level `move` line means a panic or a slow response. Tell someone before changing anything.
+## E. Engine work, in expected-value order
 
-## D. The one setting you may need to flip
+1. **Self-coiling in long 4-snake games** — the largest loss bucket in self-play (37 of 70). Fatal boards
+   show zigzag coils inside our own territory. Ideas: a coil/"compactness" penalty, tail-reachability in
+   the leaf, or a survival check against *adversarial* (not predicted) opponents — the predicted version
+   (`endgameAlways`) traded self-collisions for head-to-heads and was rejected.
+2. **Food drive** — `foodDeficitScale` 3 won in 4-snake self-play (+1.17) but leaned negative vs v1
+   and the zoo, so it stays off (DEVLOG §11.9). A version that only applies in duels, or only when an
+   opponent is two or more longer, is the next thing to try.
+3. **Speed** — the fill is ~90 % of search time; a bitboard flood, or skipping articulation in inner
+   leaves if self-play shows no loss, would buy depth on Render.
+4. **Duels** — head-to-head (25) and self-collision (22) losses in duel self-play, sealed 4–10+ turns
+   earlier: deeper search and a duel-specific profile (`engine` weights for two snakes).
+5. Transposition-table reuse between turns of the same game; Lazy SMP if hosting ever has several cores.
 
-Render's free tier is about 0.1 CPU. TVAE (the main evaluator) takes ~0.03 ms per move and always
-runs first. The **duel search** (only when exactly 2 snakes are alive) then uses the remaining
-budget and is trusted only if it finished depth ≥ 4 — otherwise the TVAE move is played. Check
-`"reason"` and `"depth"` on 1v1 `move` lines: `duel` with depth ≥ 4 means the search is reaching
-useful depth; `tvae` with depth 2–3 means the CPU is too slow for it and TVAE is carrying you,
-which is fine. Only if you see `elapsed_ms` near 500 or `WARN` lines, set `"duelEnabled": false`
-in `config/*.json` (one-line PR). Measured cost of disabling everywhere: −0.07 pts/game in
-qualifying, −0.21 pts/game and −5 pp wins in the bracket — so don't do it without evidence.
-
-## E. At feature freeze (≈08:45)
-
-- [ ] Render is Live on the `known-good` commit (`git rev-parse --short known-good` = `version` in `curl`)
-- [ ] 20-minute idle test: leave it, then `time curl -s YOUR-URL` → under 1 second
-- [ ] UptimeRobot green, Actions keepwarm green
-- [ ] Snake registered on the tournament page
-- [ ] From now on: operations and proven rule bugs only (KICKOFF.md "At feature freeze")
-
-## F. If anything breaks
-
-`RUNBOOK.md`: §3 revert (`git revert`, never `reset --hard`), §4 switch to Koyeb, §5 emergency
-Cloudflare tunnel from your Mac.
-
-## G. After the event (not before)
-
-Open ideas not yet built, in expected-value order: a 2-ply envelope for "sandwich" corridors
-(the largest remaining loss bucket), reweighting the opponent ensemble by snake name, a
-transposition table for the duel search, and the (μ+λ) parameter search in
-`OPTIMIZATION_LOOP.md` Part 3.
+Every change: own branch and PR, behind a flag, paired arena gate (`promotionGate` must pass) on
+4-snake and duels, vs v1 and v2 self-play and the zoo; documented in DEVLOG and CHANGELOG.
