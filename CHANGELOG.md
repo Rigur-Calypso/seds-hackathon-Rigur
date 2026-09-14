@@ -153,3 +153,10 @@ Measured at 2 000 nodes per move, paired seeds (DEVLOG §11.4):
   self-play (all n.s.) — no regression allowed on any pool; stays 1.
 - REJECTED `endgameAlways`: 0.00 pts; self-collisions 73 → 13 but head-to-heads 55 → 115.
 - MEASURED 10 000 vs 2 000 nodes, 4-snake self-play: +0.54 pts, p = 0.11 (hosting CPU matters).
+
+## ops-012 — live latency fix for v2 on Render
+
+Live CLI games after the v2 merge: duel p99 302 ms, 0 timeouts; 4-snake with four concurrent requests
+p99 501 ms and 44 of 1 354 moves at the 500 ms timeout (throttled CPU; compute up to 244 ms).
+Change: `cpuCapMs` 30, `searchNodes` 2 500 in every profile; budget split evenly across concurrent
+requests; `minBudgetMs` 8. Result after deploy: DEVLOG §11.10.

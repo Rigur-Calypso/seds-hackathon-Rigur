@@ -1,6 +1,6 @@
 {
   "name": "royale",
-  "cpuCapMs": 50,
+  "cpuCapMs": 30,
   "riskMean": 0.5,
   "riskCVaR": 0.5,
   "riskMin": 0,
@@ -13,5 +13,6 @@
   "wHazardWeapon": 0.4,
   "duelEnabled": true,
   "duelMaxDepth": 4,
-  "engine": "v2"
+  "engine": "v2",
+  "searchNodes": 2500
 }

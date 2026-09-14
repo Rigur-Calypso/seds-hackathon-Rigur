@@ -146,7 +146,7 @@ func Defaults() Params {
 		NetworkMarginMs: 180,
 		OverheadPadMs:   40,
 		CPUCapMs:        220,
-		MinBudgetMs:     25,
+		MinBudgetMs:     8,
 
 		LocalityRadius: 6,
 		MaxJoint:       64,
