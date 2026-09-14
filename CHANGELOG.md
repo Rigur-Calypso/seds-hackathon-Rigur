@@ -118,3 +118,27 @@ food-race certificates parked on branch `improve-008-food-race` (builds, tests p
 reported whether any cell was significant. New `promotionGate` in every paired report: mean points
 difference > 0, p < 0.05, bootstrap CI lower bound > 0, zero B timeouts; grid `promotionGate` requires
 every cell to pass. Three tests, written first. Server binary unchanged.
+
+## improve-011 — v2 engine: fast state + deep turn-based search (post-event rework)
+
+- `internal/sim`: allocation-free position, in-place `Make`/`Unmake` of one simultaneous turn
+  (65 ns), incremental hash, temporal Voronoi fill (2.0 µs on 11×11). Differential-tested against
+  `internal/rules` (10 414 turns) and the official engine (2 877 turns); fill identical to v1.
+- `internal/brain`: iterative-deepening paranoid alpha-beta over whole turns with locality-masked
+  opponents, transposition table, history/killer ordering, danger extensions, node cap and
+  cooperative deadline. Leaf value equals v1's heuristic (tested).
+- `engine` profile key; `search.Evaluate` dispatches; v1 remains the path for > 8 snakes.
+  Every profile switched to `"v2"`. A search without a deadline or node cap stops at
+  `searchNodesNoDeadline` (30 000) so no call is ever unbounded.
+- Arena: `--nodes`, opponents `v1`/`v2`, sim-vs-official differential. Decision log and
+  `X-Snake-Decision` carry `nodes`.
+- Behind flags, off: sealed-region survival filter, rational opponents, storm-aware hunger, PVS.
+
+Measured at 2 000 nodes per move, paired seeds (DEVLOG §11.4):
+- qualifying vs three v1 (200): 4.82 → **8.49 pts**, 22.5 → **70.0 %** wins, p = 1e-26, gate pass
+- qualifying vs zoo (500): 8.77 → **9.55 pts**, 84 → **94 %**, p = 3e-7, gate pass
+- bracket royale vs three v1 (200): 4.86 → **8.21 pts**, 22.5 → **60.5 %**, p = 2e-25
+- constrictor vs three v1 (100): 4.72 → **7.21 pts**, 3 → **55 %**, p = 7e-8, gate pass
+- final 19×19 duel vs v1 depth-4 search (100): 7.86 → **8.38 pts**, 45 → **58 %**, p = 0.026, gate pass
+  (duel profile switched to `"v2"`)
+- REJECTED (kept off) PVS: same values, +7 % nodes at depth 3

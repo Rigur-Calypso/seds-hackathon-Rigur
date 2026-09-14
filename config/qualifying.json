@@ -6,5 +6,6 @@
   "riskMin": 0,
   "cvarAlpha": 0.25,
   "duelEnabled": true,
-  "duelMaxDepth": 4
+  "duelMaxDepth": 4,
+  "engine": "v2"
 }

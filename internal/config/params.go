@@ -96,6 +96,9 @@ type Params struct {
 	// SearchNodes caps resolved joint actions per decision (0 = deadline only).
 	// A cap makes arena runs reproducible without a wall-clock budget.
 	SearchNodes int `json:"searchNodes"`
+	// SearchNodesNoDeadline caps a search whose context has no deadline and
+	// SearchNodes is 0, so no call is ever unbounded.
+	SearchNodesNoDeadline int `json:"searchNodesNoDeadline"`
 	// Opponents whose heads are within 2·depth+SearchAdvSlack of ours choose
 	// adversarial replies (at most SearchMaxAdv, nearest first); the others play
 	// one predicted move.
@@ -197,6 +200,7 @@ func Defaults() Params {
 		Engine:                  "v1",
 		SearchMaxDepth:          20,
 		SearchNodes:             0,
+		SearchNodesNoDeadline:   30000,
 		SearchMaxAdv:            3,
 		SearchAdvSlack:          1,
 		SearchExtensions:        2,

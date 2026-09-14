@@ -626,3 +626,131 @@ the fix; `go vet` and race-enabled arena tests pass after it.
 
 **Scope.** `tools/arena` only; `cmd/server` does not import it, so the bot binary is unchanged. Merging
 still restarts the Render service, so it waits until matches are over.
+
+## 11. v2 engine — complete rework after the event (14 Sep 2026)
+
+The tournament is over. The owner asked for the strongest bot possible with no time constraint and
+permission to rework everything. Branch `improve-011-v2-engine` (it contains the PR #15 commits).
+
+### 11.1 Why a rework, not another patch
+
+- §9.1 and §10.5: the snake never blundered on its final move; 70–76 % of losses were sealed one to
+  three turns earlier and invisible to a one-ply evaluator. P1 (§10.7) proved that seeing further pays
+  (+0.7 pts vs champions) but bolted a second ply onto one outcome at a time.
+- Self-play baseline, v1 vs three v1, 200 games, qualifying: **4.82 pts, 22.5 % wins**; deaths
+  head-to-head 87, self 39, body 22, starvation 2.
+- A real multi-turn search needs positions that are cheap to step: v1's resolver clones the board
+  (`board.State.Clone`) on every resolution and its fill allocates per call.
+
+Decision: build a fast position type and a deep search on it, keep every v1 package as the fallback
+path, and let the arena decide.
+
+### 11.2 Design
+
+**`internal/sim` — the fast state.** Bodies are ring buffers of cell indices (head at `start`); a
+per-cell segment count `occ` replaces body scans; `Nbr[c][d]` precomputes neighbours (wrap-aware, −1
+off board). `Make` applies one simultaneous turn in place, in the engine's order, and fills an `Undo`
+record; `Unmake` reverts it exactly.
+
+- R4 falls out of movement (pop tail, push head); growth duplicates the last segment.
+- R1: starvation before feeding; a snake at 0 health on food eats and lives.
+- R5/R6: no damage on a food square; otherwise damage per stacked hazard, eliminating inline before feeding.
+- R12: snakes eliminated in phase 1 (health, wall) leave `occ` before collisions, so they block no one.
+- R2/R3/R7: a head collides with a body when `occ` at its cell exceeds the heads standing there;
+  equal-or-shorter heads lose head-to-heads; all phase-2 eliminations apply together.
+- R9: food cleared, health pinned, growth unless the tail is already duplicated.
+- R8: the ring is not regenerated. Hazards are a *layer per turn*: the supplied hazards (truth) until
+  the next shrink turn, then — with `searchShrinkPessimistic` — the union of the four possible rings
+  (the safe rectangle shrunk on every side), one layer per further shrink. The direction is never predicted.
+- A 64-bit Zobrist-style hash (keys from the splitmix64 finaliser, no tables) is maintained incrementally.
+
+`Fill.Compute` is the v1 temporal Voronoi (time-aware release, health through storms and food,
+contested cells, attack cells, exits, articulation points) on these arrays.
+
+**`internal/brain` — the search.** Depth is counted in whole turns.
+
+- A *max node* chooses our move; a *min node* fixes it and enumerates the joint reply of the
+  adversarial opponents — heads within `2·depth + searchAdvSlack` of ours, nearest first, at most
+  `searchMaxAdv` — while every other opponent plays one cheap predicted move (most open next cell;
+  food first when at or below `predictHungry` health). Every joint action is resolved with `sim.Make`,
+  so head-to-heads, tail release and hazards are exact.
+- Paranoid: replies minimise our value. With locality this keeps branching near 3×3 instead of 3×27.
+- Iterative deepening with a direct-mapped transposition table (generation-stamped, terminal values
+  stored relative to the node), TT move and history ordering for our moves, killer replies and
+  "toward our next cell first" ordering for opponents.
+- Danger extensions: a leaf with an equal-or-longer head within two cells is extended by one turn, at
+  most `searchExtensions` times per path.
+- Cooperative: the context is polled every 128 nodes and an optional node cap (`searchNodes`) stops the
+  search deterministically. A partial iteration still switches moves when a completed alternative beats
+  the principal move's deeper value. Nothing runs after the call returns.
+- Leaves use v1's heuristic term for term, measured against the search root (kills and growth since
+  the root). Terminal bands: loss = −3 + 0.6·(fraction of root opponents dead) + 0.01·ply; win =
+  2 + 0.5·health − 0.01·ply.
+
+**Integration.** Profile key `engine` (`"v1"` default in code, set per profile). `search.Evaluate`
+calls `brain.Search`; `ErrUnsupported` (more than eight snakes, malformed bodies) falls through to the
+v1 path, `ErrIncomplete` (not even depth 1 before the deadline) returns the precomputed fallback. The
+decision log and `X-Snake-Decision` header now carry `nodes`.
+
+**Arena.** `--nodes N` caps every engine whose profile does not set `searchNodes`, which makes runs
+deterministic without a wall-clock budget; opponents `v1` and `v2` seat either generation.
+
+### 11.3 Verification
+
+| Check | Result |
+|---|---|
+| `TestMakeMatchesResolver` — sim vs `internal/rules`, 8 variants (standard, royale keep and pessimistic, 19×19 duel, stacked scattered hazards, constrictor, wrapped, wrapped constrictor) | 10 414 turns identical, 2 173 eliminations; `Unmake` restores every turn bit for bit; incremental hash and occupancy equal a recomputation |
+| Official differential (`tools/arena`) — sim vs `BattlesnakeOfficial/rules` | 2 877 turns identical (every hazard compared), 664 eliminations |
+| `TestSafeMovesMatchLegal`, `TestFillMatchesVoronoi` | identical to `legal.Safe` and `voronoi.Compute` on every variant |
+| `TestHeuristicMatchesV1` | brain leaf value equals `eval.Heuristic` within 1e-9 on 500+ positions |
+| Tactics | forced win found; equal head-to-head refused; the §10.7 sandwich refused one turn early; node budget reproducible; deadline honoured; > 8 snakes unsupported |
+| Fixtures | all 14 `testdata/fixtures` pass with the v2 engine |
+
+Speed on this Mac (Go reports Apple M4): `Make`+`Unmake` 65 ns, 4-snake 11×11 fill 2.0 µs, 19×19 duel
+fill 5.6 µs, no allocations. A CPU profile of the search puts ~90 % of time in the fill (flood 50 %,
+articulation 28 %); `Make` is 2 %. Exact speedups (hoisted slices, articulation resets only visited
+cells) were applied and re-verified against v1. Unconstrained, a 19×19 duel reaches depth 4 in 3 ms,
+6 in 30 ms and 8 in 120 ms.
+
+### 11.4 v2 against v1 (2 000 nodes per move, paired seeds 42,5,725,1337,99)
+
+2 000 nodes is roughly what the Render free tier affords inside the 50 ms compute cap.
+
+| Run | A: shipped v1 | B: v2 | Δ pts [95 % CI] | p | Gate |
+|---|---|---|---|---|---|
+| Qualifying vs three v1, 200 | 4.82 pts, 22.5 % | **8.49 pts, 70.0 %** | **+3.67 [3.05, 4.24]** | 1e-26 | pass |
+| Qualifying vs zoo, 500 | 8.77 pts, 84.0 % | **9.55 pts, 94.0 %** | **+0.78 [0.48, 1.07]** | 3e-7 | pass |
+| Bracket royale vs three v1, 200 | 4.86 pts, 22.5 % | **8.21 pts, 60.5 %** | **+3.35 [2.79, 3.87]** | 2e-25 | fail: one 587 ms decision (see note) |
+| Constrictor vs three v1, 100 | 4.72 pts, 3 % | **7.21 pts, 55 %** | **+2.49 [1.70, 3.28]** | 7e-8 | pass |
+| Final 19×19 duel vs v1 (its depth-4 duel search, uncapped), 100 | 7.86 pts, 45 % | **8.38 pts, 58 %** | **+0.52 [0.08, 0.94]** | 0.026 | pass |
+
+Deaths, qualifying vs three v1: head-to-head 87 → 8, self 39 → 41, body 22 → 10, survived 50 → 141.
+Royale vs three v1: head-to-head 75 → 2, storm 58 → 51, survived 45 → 121.
+Duel 19×19: v2 wins more but its losses are storm 17 and starvation 13 (v1: 3 and 1) — the same
+hunger defect as §11.5, now the main target in the final.
+
+Note: these runs shared ten cores with four other arena processes and the test suite (load average
+40+); timeouts are wall-clock, the games themselves are deterministic. Latency is re-measured on an
+idle machine in §11.8.
+
+### 11.5 Where v2 still loses (`--diagnose`, 100 games each vs three v1)
+
+- **Qualifying** (8.47 pts, 68 %): 31 losses — self-collision 25, body 5, head-to-head 1. Most are long
+  1v1 endgames (turn 130–530) sealed 4–10+ turns before death.
+- **Royale** (8.55 pts, 69 %): 31 losses — storm 19, self 9. Every storm death had health 1–15 with the
+  remaining food inside the storm. Cause: hunger urgency was `health − distance`, which ignores 14
+  damage per storm step; food three storm cells away costs 45 health, not 3.
+
+### 11.6 Additions behind flags (all default off)
+
+| Flag | What | Test |
+|---|---|---|
+| `searchEndgame` (P4) | When no opponent can ever reach our region (`Fill.Isolated`: two time-aware floods), a depth-first survival search with Warnsdorff ordering keeps only the root moves that last longest (horizon `endgameHorizon`, budget `endgameNodes`, deadline-aware; an unfinished proof keeps every move). In constrictor the reachable-cell count caps the search. | sealed 7×7 constrictor: keeps up (21 turns) over down (6); open boards untouched |
+| `endgameAlways` | Same filter without the isolation test, opponents on predicted moves | open board: every move survives the horizon |
+| `searchRationalOpp` | Adversaries not longer than us never step next to our head (R2: they would lose or trade) | — |
+| `hazardHunger` | `Fill` records `FoodHealth`, the health left on first reaching a food (storm charged, best among equally short paths); hunger uses it on hazard boards | equals health − distance without hazards; 19 for two storm cells on a 3-step path |
+| `searchPVS` | Principal-variation search | same root value as plain alpha-beta at depth 3 on 27 positions, but 7 % **more** nodes — left off |
+
+Found while testing the endgame filter: in the first test board the opponent's pocket was small, so it
+died first, its body vanished (R12) and both of our moves survived equally. The search was right; the
+test board was changed.

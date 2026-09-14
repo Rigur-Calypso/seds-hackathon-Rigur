@@ -151,6 +151,24 @@ parse + validate (settings & deadline derived from the request)
 
 Never 5xx, never panic, always return one of the four move strings.
 
+### 5.1 Engine v2 (post-event rework, DEVLOG §11)
+
+The profile key `engine` selects the evaluator stage above. `"v2"` replaces TVAE + duel search with a
+deep search on a fast state; TVAE remains the path for positions v2 cannot hold (> 8 snakes).
+
+```
+parse + validate → fallback (FIRST) → sim.State (make/unmake, exact rules R1–R12)
+  → brain.Search: iterative-deepening alpha-beta over whole turns
+       our move → joint reply of nearby opponents (paranoid), far opponents predicted
+       leaves: temporal Voronoi heuristic (same terms as internal/eval)
+  → move + structured decision log (depth, nodes)
+```
+
+Every rule in §2 still applies inside `internal/sim`, cited by ID. Any change to `sim.Make` re-runs
+`TestMakeMatchesResolver` and the official differential in `tools/arena` — non-negotiable. The
+stage risk postures of §6 are expressed through the evaluation weights and search flags per profile;
+the search itself is paranoid at every stage.
+
 ---
 
 ## 6. TVAE — Temporal Voronoi Action Envelope

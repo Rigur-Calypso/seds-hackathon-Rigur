@@ -109,6 +109,11 @@ func (se *Searcher) reset(ctx context.Context, p *config.Params, g *sim.Game, st
 	se.p, se.g, se.st, se.ctx = p, g, st, ctx
 	se.nodes, se.stop = 0, false
 	se.maxNodes = int64(p.SearchNodes)
+	if _, ok := ctx.Deadline(); !ok && se.maxNodes <= 0 {
+		// Never unbounded: without a deadline or a configured cap (tests, tools),
+		// deep iterations on a crowded board would run for minutes.
+		se.maxNodes = int64(p.SearchNodesNoDeadline)
+	}
 	se.tt = acquireTable(se.tt, p.SearchTTBits)
 	se.rootOpp = 0
 	for i := range se.rootAlive {
