@@ -107,7 +107,78 @@ type Paired struct {
 	MeanDiffWin    float64    `json:"meanDiffWin"`
 	PWin           float64    `json:"pWin"`
 	CIWin          [2]float64 `json:"ci95Win"`
-	Significant    bool       `json:"significantAt05"`
+	// Significant is descriptive only: two-sided, on points OR wins, so it is
+	// also true for a significant regression. Never promote on it; use Gate.
+	Significant bool `json:"significantAt05"`
+}
+
+// Gate is the promotion decision for B over A. Pass requires every criterion;
+// Reasons lists each one that failed.
+type Gate struct {
+	Pass    bool     `json:"pass"`
+	Reasons []string `json:"failReasons,omitempty"`
+}
+
+// gateAlpha is the significance level of the promotion gate.
+const gateAlpha = 0.05
+
+// promotionGate passes B only for a real improvement in points: a positive
+// mean paired difference, p < gateAlpha, a bootstrap 95 % CI whose lower bound
+// is above zero, and zero timeouts for B. Win-rate significance never promotes.
+func promotionGate(p *Paired, b *Summary) Gate {
+	var g Gate
+	if p == nil || b == nil {
+		g.Reasons = append(g.Reasons, "no paired comparison")
+		return g
+	}
+	if p.MeanDiffPoints <= 0 {
+		g.Reasons = append(g.Reasons, fmt.Sprintf("mean points difference %.3f not positive", p.MeanDiffPoints))
+	}
+	if p.PPoints >= gateAlpha {
+		g.Reasons = append(g.Reasons, fmt.Sprintf("p=%.3f not below %.2f", p.PPoints, gateAlpha))
+	}
+	if p.CIPoints[0] <= 0 {
+		g.Reasons = append(g.Reasons, fmt.Sprintf("95%% CI lower bound %.3f not above zero", p.CIPoints[0]))
+	}
+	if b.Timeouts > 0 {
+		g.Reasons = append(g.Reasons, fmt.Sprintf("B timed out %d times", b.Timeouts))
+	}
+	g.Pass = len(g.Reasons) == 0
+	return g
+}
+
+// gridGate passes only if every environment passes promotionGate on its own:
+// a candidate that regresses in any plausible event setting is not promoted.
+func gridGate(cells []GridCell) Gate {
+	var g Gate
+	if len(cells) == 0 {
+		g.Reasons = append(g.Reasons, "no grid cells")
+	}
+	for _, c := range cells {
+		if c.Report.Gate == nil || !c.Report.Gate.Pass {
+			why := "no paired comparison"
+			if c.Report.Gate != nil {
+				why = strings.Join(c.Report.Gate.Reasons, "; ")
+			}
+			g.Reasons = append(g.Reasons, fmt.Sprintf("cell %s: %s", settingsKey(c.Settings), why))
+		}
+	}
+	g.Pass = len(g.Reasons) == 0
+	return g
+}
+
+// settingsKey renders grid settings in a stable order.
+func settingsKey(set map[string]string) string {
+	keys := make([]string, 0, len(set))
+	for k := range set {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = k + "=" + set[k]
+	}
+	return strings.Join(parts, ",")
 }
 
 // Report is the JSON output of a single-environment run.
@@ -117,6 +188,7 @@ type Report struct {
 	A      Summary  `json:"a"`
 	B      *Summary `json:"b,omitempty"`
 	Paired *Paired  `json:"paired,omitempty"`
+	Gate   *Gate    `json:"promotionGate,omitempty"`
 }
 
 // GridCell is one environment of a grid run.
@@ -132,7 +204,9 @@ type GridReport struct {
 	WorstDiffPoints float64           `json:"worstMeanDiffPoints"`
 	WorstDiffWin    float64           `json:"worstMeanDiffWin"`
 	WorstCell       map[string]string `json:"worstCell,omitempty"`
-	AnySignificant  bool              `json:"anyCellSignificantAt05"`
+	// AnySignificant is descriptive only (true for a regression too); Gate decides.
+	AnySignificant bool `json:"anyCellSignificantAt05"`
+	Gate           Gate `json:"promotionGate"`
 }
 
 func stageProfile(cfg *Config) string {
@@ -334,6 +408,8 @@ func runOne(cfg Config) (Report, []GameResult, error) {
 		sb := summarize(&cfg, resB, wallB)
 		rep.B = &sb
 		rep.Paired = paired(resA, resB, cfg.Bootstrap)
+		g := promotionGate(rep.Paired, rep.B)
+		rep.Gate = &g
 	}
 	return rep, resA, nil
 }
@@ -425,6 +501,7 @@ func runGrid(base Config) (GridReport, error) {
 			first = false
 		}
 	}
+	gr.Gate = gridGate(gr.Cells)
 	return gr, nil
 }
 
