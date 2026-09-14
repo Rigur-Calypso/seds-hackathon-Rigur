@@ -754,3 +754,45 @@ idle machine in §11.8.
 Found while testing the endgame filter: in the first test board the opponent's pocket was small, so it
 died first, its body vanished (R12) and both of our moves survived equally. The search was right; the
 test board was changed.
+
+### 11.7 Scope change — 11×11 standard and duels only
+
+The owner will compete on Battlesnake in **standard 4-snake 11×11** and **1v1 duels on 11×11** only.
+Royale, constrictor and the 19×19 final are out of scope: their code and tests stay, but no more
+tuning. Experiments on those rulesets that were still running were stopped; their partial results:
+
+| Run | Result | Status |
+|---|---|---|
+| `hazardHunger`, royale 11×11 self-play, 200 | +0.17 pts [−0.29, +0.61], p 0.48; storm deaths 66 → 59 | not promoted (out of scope) |
+| 19×19 duel loss dump, 40 games vs v1 | 11 losses: starvation 5, storm 5, self 1 | traced (below), then out of scope |
+
+**The 19×19 trace** (`arena --trace`, new): once the v1 opponent was one longer it shadowed v2 at
+distance 2–4 for 80 turns; v2 dodged and starved with food on the board. The food gradient
+(`wFood`·fd/span ≈ 0.009 per step) is lost in the value differences of a five-turn paranoid search,
+where v1's one-ply choice was decided by it. New weight `foodDeficitScale` multiplies the food drive
+while we are not strictly the longest (default 1 = unchanged).
+
+### 11.8 11×11 measurements (2 000 nodes per move unless stated)
+
+| Run | A | B | Δ pts [95 % CI] | p | Gate |
+|---|---|---|---|---|---|
+| **Duels v1 vs v2**, vs v1 opponent, 200 | v1 7.89, 46.5 % | **v2 8.79, 69.5 %** | **+0.90 [0.53, 1.29]** | 5e-6 | pass |
+| v2 at 10 000 nodes vs three v2 at 2 000, 4-snake, 200 | 4.79, 24.5 % | 5.33, 32.5 % | +0.54 [−0.12, +1.18] | 0.11 | fail (n.s.; 17 wall-clock timeouts under load) |
+| `foodDeficitScale` 3, duels vs v1, 200 | 8.79, 69.5 % | 8.78, 69.5 % | −0.01 [−0.38, +0.32] | 0.96 | fail (neutral) |
+| **`foodDeficitScale` 3, 4-snake vs three v2**, 200 | 4.79, 24.5 % | **5.96, 37.0 %** | **+1.17 [0.47, 1.87]** | 0.002 | pass |
+| `endgameAlways`, 4-snake vs three v2, 200 | 4.79, 24.5 % | 4.79, 25.0 % | −0.00 [−0.26, +0.27] | 0.99 | fail — self-collisions 73 → 13 but head-to-heads 55 → 115 |
+
+`endgameAlways` shows why a survival filter with *predicted* opponents is wrong in a crowded game: it
+keeps the moves that live longest if nobody attacks, which walks into head-to-heads. Rejected.
+
+**Latency with a real 50 ms budget**, four games at once on an idle machine, v2 vs v1: 4-snake p50
+50.8 ms, p99 51.5 ms, 0 timeouts (9.21 pts, 83 % in 24 games); duels p50 50.9 ms, p99 51.5 ms, 0
+timeouts (22 of 24 won). The deadline tests pass on the idle machine (3 ms → depth 4, 30 ms → depth 6,
+120 ms → depth 7 on the 19×19 test board).
+
+**Where v2 loses to itself** (`--diagnose`, 100 games each):
+- 4-snake: 70 losses — self-collision 37, head-to-head 22, body 9, starvation 2; last real choice 1–3
+  turns earlier 21, 4–10 turns 43, > 10 turns 6; the search already saw the loss at that choice in 35.
+  Fatal boards show long snakes coiled in zigzags inside their own territory: area-seeking packs the
+  body, and when the territory shrinks the coils are the trap.
+- Duels: 51 losses — head-to-head 25, self 22; last real choice 4–10 turns earlier 27, > 10 turns 19.

@@ -1,8 +1,9 @@
 # Rigur Battlesnake
 
-A [Battlesnake](https://docs.battlesnake.com) written in Go. It plays every official ruleset —
-standard, royale, constrictor and wrapped — on any board up to 25×25, and never returns anything
-but one of the four moves.
+A [Battlesnake](https://docs.battlesnake.com) written in Go, tuned for **standard 11×11 games (4 snakes)
+and 11×11 duels**. It still plays every official ruleset — royale, constrictor and wrapped — on any
+board up to 25×25, and never returns anything but one of the four moves, but only standard and duels
+are measured and tuned.
 
 Built for the SEDS Celestia hackathon, then reworked into a deep-search engine ("v2"). The rules it
 relies on are verified against the official engine source and written down in
@@ -41,16 +42,18 @@ Measured in the in-process arena with the official rules, paired seeds (common r
 2 000 search nodes per move (about what Render's free tier allows). Points are the qualifying
 placement table 10/6/3/1.
 
-| Stage | Opponents | v1 (previous bot) | v2 | Difference |
+| Mode | Opponents | v1 (previous bot) | v2 | Difference |
 |---|---|---|---|---|
-| Qualifying, 4 snakes 11×11 | three v1 bots, 200 games | 4.82 pts, 22.5 % wins | **8.49 pts, 70.0 % wins** | +3.67 pts, p < 10⁻²⁵ |
-| Qualifying, 4 snakes 11×11 | scripted zoo, 500 games | 8.77 pts, 84 % wins | **9.55 pts, 94 % wins** | +0.78 pts, p < 10⁻⁶ |
+| **Standard, 4 snakes 11×11** | three v1 bots, 200 games | 4.82 pts, 22.5 % wins | **8.49 pts, 70.0 % wins** | +3.67 pts, p < 10⁻²⁵ |
+| **Standard, 4 snakes 11×11** | scripted zoo, 500 games | 8.77 pts, 84 % wins | **9.55 pts, 94 % wins** | +0.78 pts, p < 10⁻⁶ |
+| **Duel, 1v1 11×11** | v1 bot, 200 games | 7.89 pts, 46.5 % wins | **8.79 pts, 69.5 % wins** | +0.90 pts, p < 10⁻⁵ |
 | Bracket royale, 4 snakes 11×11 | three v1 bots, 200 games | 4.86 pts, 22.5 % wins | **8.21 pts, 60.5 % wins** | +3.35 pts, p < 10⁻²⁴ |
 | Constrictor, 4 snakes 11×11 | three v1 bots, 100 games | 4.72 pts, 3 % wins | **7.21 pts, 55 % wins** | +2.49 pts, p < 10⁻⁷ |
 | Final, 1v1 royale 19×19 | v1 with its depth-4 duel search, 100 games | 7.86 pts, 45 % wins | **8.38 pts, 58 % wins** | +0.52 pts, p = 0.026 |
 
-More results, including the 19×19 final and every experiment that was rejected, are in
-[`DEVLOG.md`](DEVLOG.md) §11.
+The royale, constrictor and 19×19 rows come from the hackathon stages and are no longer tuned.
+With a real 50 ms compute budget and four games at once, decisions take p99 51.5 ms with no
+timeouts. More results, and every experiment that was rejected, are in [`DEVLOG.md`](DEVLOG.md) §11.
 
 ## Run it
 
