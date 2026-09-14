@@ -40,6 +40,9 @@ var (
 // maxPly bounds the recursion (turns from the root, extensions included).
 const maxPly = 48
 
+// pvsEps is the null-window width; far below any meaningful value difference.
+const pvsEps = 1e-9
+
 // RootScore is a root move and its value at the deepest completed depth.
 type RootScore struct {
 	Dir   board.Dir
@@ -249,7 +252,17 @@ func (se *Searcher) maxNode(depth, ply, ext int, alpha, beta float64) float64 {
 
 	best, bestMove := math.Inf(-1), moves[0]
 	for k := 0; k < n; k++ {
-		v := se.minNode(moves[k], depth, ply, ext, alpha, beta)
+		var v float64
+		if k == 0 || !se.p.SearchPVS {
+			v = se.minNode(moves[k], depth, ply, ext, alpha, beta)
+		} else {
+			// PVS: prove the move cannot beat alpha with a null window; re-search
+			// with the full window only if it might.
+			v = se.minNode(moves[k], depth, ply, ext, alpha, alpha+pvsEps)
+			if !se.stop && v > alpha && v < beta {
+				v = se.minNode(moves[k], depth, ply, ext, alpha, beta)
+			}
+		}
 		if se.stop {
 			return 0
 		}
@@ -342,11 +355,23 @@ func (se *Searcher) minNode(m board.Dir, depth, ply, ext int, alpha, beta float6
 
 	var idx [sim.MaxSnakes]int
 	worst := math.Inf(1)
+	first := true
 	for {
 		for k := 0; k < na; k++ {
 			mv[adv[k]] = lists[k][idx[k]]
 		}
-		v := se.child(&mv, depth, ply, ext, alpha, math.Min(beta, worst))
+		b := math.Min(beta, worst)
+		var v float64
+		if first || !se.p.SearchPVS {
+			v = se.child(&mv, depth, ply, ext, alpha, b)
+		} else {
+			// PVS for the minimiser: null window just below the current bound.
+			v = se.child(&mv, depth, ply, ext, b-pvsEps, b)
+			if !se.stop && v < b && v > alpha {
+				v = se.child(&mv, depth, ply, ext, alpha, b)
+			}
+		}
+		first = false
 		if se.stop {
 			return 0
 		}

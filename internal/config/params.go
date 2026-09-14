@@ -114,6 +114,9 @@ type Params struct {
 	// a cell next to our head (they would lose or trade the head-to-head, R2).
 	// Off = fully paranoid replies.
 	SearchRationalOpp bool `json:"searchRationalOpp"`
+	// SearchPVS: principal-variation search — later moves and replies are first
+	// tested with a null window and re-searched only if they might improve.
+	SearchPVS bool `json:"searchPVS"`
 	// HazardHunger: on hazard boards, hunger urgency uses the health left on
 	// arriving at the cheapest reachable food (storm damage charged) instead of
 	// health minus distance.
