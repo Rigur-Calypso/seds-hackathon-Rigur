@@ -208,7 +208,7 @@ func TestResolverMatchesOfficialRules(t *testing.T) {
 // identical copy on paired seeds) must show no difference at all.
 func TestNullTestDeterministic(t *testing.T) {
 	cfg := defaultConfig()
-	cfg.Games, cfg.Seeds, cfg.Concurrency, cfg.MaxTurns, cfg.DuelDepth = 12, []int64{42, 5, 725}, 4, 200, 2
+	cfg.Games, cfg.Seeds, cfg.Concurrency, cfg.MaxTurns, cfg.DuelDepth, cfg.Nodes = 12, []int64{42, 5, 725}, 4, 200, 2, 1000
 	eng, err := loadEngine(&cfg, "")
 	if err != nil {
 		t.Fatal(err)
