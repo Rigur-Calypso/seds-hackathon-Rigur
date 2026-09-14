@@ -231,7 +231,8 @@ func TestFillMatchesVoronoi(t *testing.T) {
 			w := Result{N: want.N, FreeCells: want.FreeCells, Guaranteed: want.Guaranteed, Contested: want.Contested,
 				Attack: want.Attack, FoodDist: want.FoodDist, SafeExits: want.SafeExits, ExitsUncontested: want.ExitsUncontested,
 				Trapped: want.Trapped, Robust: want.Robust, CutCells: want.CutCells}
-			w.FoodHealth = got.FoodHealth // v2-only field, tested in TestFoodHealth
+			w.FoodHealth = got.FoodHealth   // v2-only field, tested in TestFoodHealth
+			w.OwnReleased = got.OwnReleased // v2-only field, tested in TestOwnReleased
 			if got != w {
 				t.Fatalf("%s seed %d:\n sim     %+v\n voronoi %+v", v.name, seed, got, w)
 			}
@@ -277,6 +278,25 @@ func TestFoodHealth(t *testing.T) {
 	// best health only among equally short paths.)
 	if r.FoodDist[0] != 3 || r.FoodHealth[0] != 19 {
 		t.Fatalf("dist %d health %d, want 3 and 19", r.FoodDist[0], r.FoodHealth[0])
+	}
+}
+
+// A coiled snake in a pocket depends on its own body for room; a straight snake
+// in the open does not.
+func TestOwnReleased(t *testing.T) {
+	var f Fill
+	open, _ := board.FromAPI(fixture.MustState("you 100 5,5 5,4 5,3\nsnake far 100 0,10 1,10 2,10"))
+	st, _ := New(open, NewGame(open, ShrinkKeep))
+	if r := f.Compute(st, 0, false); r.OwnReleased[0] > 2 || r.Reach(0) < 50 {
+		t.Fatalf("open board: own released %d of reach %d", r.OwnReleased[0], r.Reach(0))
+	}
+	// A 3×3 board our coiled body fills but one cell: the head is next to the
+	// tail and every other cell it can reach is its own body freeing in turn.
+	coiled, _ := board.FromAPI(fixture.MustState("size 3 3\nyou 100 1,1 2,1 2,2 1,2 0,2 0,1 0,0 1,0"))
+	st, _ = New(coiled, NewGame(coiled, ShrinkKeep))
+	r := f.Compute(st, 0, false)
+	if r.Reach(0) < 6 || r.OwnReleased[0] < r.Reach(0)-1 {
+		t.Fatalf("coiled: own released %d of reach %d; want all but the one free cell", r.OwnReleased[0], r.Reach(0))
 	}
 }
 

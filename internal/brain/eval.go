@@ -84,11 +84,30 @@ func (se *Searcher) heuristic(v *sim.Result) float64 {
 	}
 
 	h += p.WArea * (area(0) - bestOpp)
-	if reach := v.Reach(0); reach < L {
-		h -= p.WTrapped * (1 - float64(reach)/float64(L))
+	// Self-coiling: with the cliff at exactly our length, a long snake with
+	// "just enough" room feels nothing, folds into its territory and is sealed
+	// a few turns later. SpaceFactor > 1 starts the penalty earlier and ramps it
+	// smoothly; 1 is v1's term.
+	need := float64(L) * p.SpaceFactor
+	reach := float64(v.Reach(0))
+	if p.SpaceSafe {
+		// Only room we hold: cells we reach strictly first, plus ties we win by
+		// being strictly longer (R2). A shorter snake with "enough" contested room
+		// is squeezed shut by the longer ones (arena trace, seed 42000126).
+		reach = float64(v.Guaranteed[0] + v.Attack[0])
 	}
-	if rb := v.Robust; p.WRobust != 0 && rb < L {
-		h -= p.WRobust * (1 - float64(rb)/float64(L))
+	if reach < need {
+		h -= p.WTrapped * (1 - reach/need)
+	}
+	if rb := float64(v.Robust); p.WRobust != 0 && rb < need {
+		h -= p.WRobust * (1 - rb/need)
+	}
+	// Room that is not our own body waiting to free: a coil survives only by
+	// following its tail exactly, which one opponent or one meal breaks.
+	if p.WSelfReliance != 0 {
+		if fresh := float64(v.Reach(0) - v.OwnReleased[0]); fresh < float64(L) {
+			h -= p.WSelfReliance * (1 - fresh/float64(L))
+		}
 	}
 	exits := v.SafeExits[0]
 	if exits > 2 {

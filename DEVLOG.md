@@ -832,3 +832,36 @@ millisecond). `TestShippedCPUCap` now also requires a node cap on v2 profiles.
 
 Arena note: shipped profiles now carry `searchNodes`, so `--nodes` no longer changes them (it still
 sets profiles that have none); candidates derived from `config/*.json` inherit 2 500.
+
+### 11.11 improve-013 — learning from live losses, and the self-coiling experiments
+
+**Loss logging.** The server now keeps the last 12 answered positions of every game and logs them as
+`recent_boards` in the `end` line of every game that is not won (§11.8: losses are usually sealed 4–10
+turns before death, so `fatal_board` alone rarely shows the mistake). `cmd/lossreport` reads pasted
+Render log lines, deep-searches every logged position move by move (50 000 nodes each) and flags the
+turns where the played move is a proven loss while another move is not; `-out` writes those positions
+as fixture drafts with a commented `reject` line. RUNBOOK §7 is rewritten around it. Tests: log parsing
+(prefixes, wins, duplicates, old `fatal_board`-only lines), a flagged equal head-to-head, and the
+server's `end` line carrying three `recent_boards` in order. `arena --trace` also prints reach, robust
+space, cut cells and exits at the root.
+
+**What a "self-coil" loss is.** Trace of v2 self-play seed 42000126 (self-collision at turn 227):
+length 13 against opponents of 15 and 17; reach stayed ~30 cells (over twice our length, so no trapped
+penalty) until turn 220, but much of it was contested by the longer snakes, who closed it; every move
+scored ≈ −1.00 from turn 215 and death came six turns after the depth-5 horizon. In duel self-play, 69
+of 98 losses are "self-collisions" — in a 1v1 space fight the loser runs out of room and the engine
+records it as hitting itself. Most of these are lost space fights, not a coiling bug.
+
+**Candidates** (v2 self-play, 200 paired games, shipped profile at 2 500 nodes; all flags default off):
+
+| Candidate | Idea | 4-snake Δ pts [95 % CI] | Duel Δ pts | Result |
+|---|---|---|---|---|
+| `spaceFactor` 1.5 | trapped/robust penalty starts below 1.5 × length | −0.33 [−0.84, +0.21] | −0.03 [−0.16, +0.10] | rejected |
+| `spaceFactor` 2.0 | … below 2 × length | −0.13 [−0.74, +0.52] | +0.10 [−0.08, +0.29] | rejected |
+| `wSelfReliance` 1.0 | penalty when room excluding our own releasing body (`OwnReleased`) < length | −0.25 [−0.73, +0.25] | — | rejected |
+| `wSelfReliance` 2.5 | same, stronger | −0.15 [−0.67, +0.37] | — | rejected |
+| `spaceSafe` 1.0 / 1.5 | trapped penalty on held room only (reached first, or tied while strictly longer) | not measured — screens stopped when the owner paused work to watch a day of live games | — | off |
+
+Merged with every new option off: live play is unchanged; only logging and tooling are new.
+Next step on this problem (NEXT_STEPS §E): measure `spaceSafe`, then deeper search (faster fill) and
+joint weight tuning rather than single-weight tweaks.

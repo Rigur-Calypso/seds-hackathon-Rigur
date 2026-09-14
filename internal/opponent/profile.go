@@ -28,6 +28,19 @@ type Game struct {
 	LastMove      string
 	MaxElapsedMs  int
 	Moves         int
+	recent        []Frame // the last RecentFrames answered positions, oldest first
+}
+
+// RecentFrames is how many positions before the end of a game are kept for the
+// loss log. Losses are usually sealed 4–10 turns before death (DEVLOG §11.8),
+// so the final board alone rarely shows the mistake.
+const RecentFrames = 12
+
+// Frame is one answered position: the fixture DSL board and the move we sent.
+type Frame struct {
+	Turn  int    `json:"turn"`
+	Move  string `json:"move"`
+	Board string `json:"board"`
 }
 
 // Observe folds the engine-measured latency of our previous response (R11
@@ -71,6 +84,18 @@ func (g *Game) Record(turn int, elapsed time.Duration, move, boardDSL string) {
 		g.MaxElapsedMs = ms
 	}
 	g.Moves++
+	if len(g.recent) == RecentFrames {
+		copy(g.recent, g.recent[1:])
+		g.recent = g.recent[:RecentFrames-1]
+	}
+	g.recent = append(g.recent, Frame{Turn: turn, Move: move, Board: boardDSL})
+}
+
+// Recent returns a copy of the last RecentFrames positions, oldest first.
+func (g *Game) Recent() []Frame {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]Frame(nil), g.recent...)
 }
 
 // Snapshot returns a copy of the loggable fields.

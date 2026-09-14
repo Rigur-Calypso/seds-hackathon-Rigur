@@ -5,13 +5,17 @@ import (
 	"os"
 
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/api"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/board"
 	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/decide"
+	"github.com/Rigur-Calypso/seds-hackathon-Rigur/internal/sim"
 )
 
 // --trace SEED plays only the game with that seed and prints every decision
 // of seat 0 to stderr: health, length, move, engine reason, search depth and
-// nodes, the candidate scores, the nearest food and each opponent. It is how a
-// loss pattern from --dump-losses is followed back to where it started.
+// nodes, the candidate scores, the nearest food, each opponent, and the space
+// readings the evaluator sees at the root (reach, sealable-robust space, cut
+// cells, safe exits). It is how a loss pattern from --dump-losses is followed
+// back to where it started.
 
 func iabs(x int) int {
 	if x < 0 {
@@ -35,6 +39,14 @@ func traceLine(gs *api.GameState, d decide.Decision) {
 		}
 		opps += fmt.Sprintf(" opp[len=%d hp=%d dist=%d]", s.Length, s.Health, iabs(s.Head.X-you.Head.X)+iabs(s.Head.Y-you.Head.Y))
 	}
-	fmt.Fprintf(os.Stderr, "t=%d hp=%d len=%d move=%s reason=%s depth=%d nodes=%d food=%d%s scores=%v\n",
-		gs.Turn, you.Health, you.Length, d.Move, d.Reason, d.Depth, d.Nodes, food, opps, d.Scores)
+	space := ""
+	if bs, ok := board.FromAPI(gs); ok {
+		if st, ok := sim.New(bs, sim.NewGame(bs, sim.ShrinkKeep)); ok {
+			var f sim.Fill
+			r := f.Compute(st, 0, true)
+			space = fmt.Sprintf(" reach=%d robust=%d cuts=%d exits=%d free=%d", r.Reach(0), r.Robust, r.CutCells, r.SafeExits[0], r.FreeCells)
+		}
+	}
+	fmt.Fprintf(os.Stderr, "t=%d hp=%d len=%d move=%s reason=%s depth=%d nodes=%d food=%d%s%s scores=%v\n",
+		gs.Turn, you.Health, you.Length, d.Move, d.Reason, d.Depth, d.Nodes, food, space, opps, d.Scores)
 }
