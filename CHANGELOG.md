@@ -160,3 +160,14 @@ Live CLI games after the v2 merge: duel p99 302 ms, 0 timeouts; 4-snake with fou
 p99 501 ms and 44 of 1 354 moves at the 500 ms timeout (throttled CPU; compute up to 244 ms).
 Change: `cpuCapMs` 30, `searchNodes` 2 500 in every profile; budget split evenly across concurrent
 requests; `minBudgetMs` 8. Result after deploy: DEVLOG §11.10.
+
+## improve-013 — learning from live losses; self-coiling experiments
+
+- Server logs `recent_boards` (last 12 positions and moves) on every game that is not won.
+- `cmd/lossreport`: pasted Render logs → deep search of every logged position → flagged mistakes and
+  fixture drafts (RUNBOOK §7). `arena --trace` adds reach, robust space, cut cells, exits.
+- New v2 options, all default off: `spaceFactor`, `wSelfReliance` (fill `OwnReleased`), `spaceSafe`.
+- REJECTED `spaceFactor` 1.5 / 2.0: −0.33 / −0.13 pts in 4-snake self-play, ±0.1 in duels.
+- REJECTED `wSelfReliance` 1.0 / 2.5: −0.25 / −0.15 pts in 4-snake self-play.
+- NOT MEASURED `spaceSafe` (screens stopped). Live play unchanged: every new option ships off.
+- Finding: most "self-collision" losses in self-play are lost space fights (DEVLOG §11.11).
