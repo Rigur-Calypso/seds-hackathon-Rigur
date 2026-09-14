@@ -42,8 +42,9 @@ stronger. A GPU does not help: the engine is CPU search, not a neural network.
    show zigzag coils inside our own territory. Ideas: a coil/"compactness" penalty, tail-reachability in
    the leaf, or a survival check against *adversarial* (not predicted) opponents — the predicted version
    (`endgameAlways`) traded self-collisions for head-to-heads and was rejected.
-2. **Food drive** — `foodDeficitScale` 6 and other values in 4-snake self-play (3 was promoted if the
-   confirmation runs passed — see CHANGELOG).
+2. **Food drive** — `foodDeficitScale` 3 won in 4-snake self-play (+1.17) but leaned negative vs v1
+   and the zoo, so it stays off (DEVLOG §11.9). A version that only applies in duels, or only when an
+   opponent is two or more longer, is the next thing to try.
 3. **Speed** — the fill is ~90 % of search time; a bitboard flood, or skipping articulation in inner
    leaves if self-play shows no loss, would buy depth on Render.
 4. **Duels** — head-to-head (25) and self-collision (22) losses in duel self-play, sealed 4–10+ turns

@@ -796,3 +796,17 @@ timeouts (22 of 24 won). The deadline tests pass on the idle machine (3 ms → d
   Fatal boards show long snakes coiled in zigzags inside their own territory: area-seeking packs the
   body, and when the territory shrinks the coils are the trap.
 - Duels: 51 losses — head-to-head 25, self 22; last real choice 4–10 turns earlier 27, > 10 turns 19.
+
+### 11.9 Promotion decision for `foodDeficitScale` 3
+
+It passed the gate in 4-snake self-play (+1.17), so it was confirmed on the other pools first:
+
+| Confirmation run | Δ pts [95 % CI] | p | Gate |
+|---|---|---|---|
+| 4-snake vs three v1, 200 | −0.19 [−0.66, +0.30]; wins −7 pp | 0.44 | fail |
+| 4-snake vs zoo, 300 | −0.07 [−0.37, +0.24] | 0.64 | fail (3 wall-clock timeouts, three arenas in parallel) |
+| Duels vs v2, 200 | +0.09 [−0.29, +0.47] | 0.63 | fail |
+
+**Not promoted.** The gain exists only against copies of itself and leans negative against v1 and the
+zoo; the rule is no regression on any pool. `foodDeficitScale` stays 1. The shipped v2 is exactly the
+engine measured in §11.4 and §11.8.

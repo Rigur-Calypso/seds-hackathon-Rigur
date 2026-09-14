@@ -142,3 +142,14 @@ Measured at 2 000 nodes per move, paired seeds (DEVLOG §11.4):
 - final 19×19 duel vs v1 depth-4 search (100): 7.86 → **8.38 pts**, 45 → **58 %**, p = 0.026, gate pass
   (duel profile switched to `"v2"`)
 - REJECTED (kept off) PVS: same values, +7 % nodes at depth 3
+
+### improve-011 addendum — 11×11 standard + duels scope
+
+- Scope: standard 4-snake 11×11 and 11×11 duels only; royale/constrictor/19×19 kept but untuned.
+- Duels 11×11, v2 vs v1 (200): 7.89 → **8.79 pts**, 46.5 → **69.5 %**, p = 5e-6, gate pass.
+- Real 50 ms budget, four concurrent games: p99 51.5 ms, 0 timeouts (4-snake and duels).
+- Arena `--trace SEED` (per-decision replay of one game).
+- REJECTED `foodDeficitScale` 3: +1.17 in 4-snake self-play but −0.19 vs v1, −0.07 vs zoo, +0.09 in duel
+  self-play (all n.s.) — no regression allowed on any pool; stays 1.
+- REJECTED `endgameAlways`: 0.00 pts; self-collisions 73 → 13 but head-to-heads 55 → 115.
+- MEASURED 10 000 vs 2 000 nodes, 4-snake self-play: +0.54 pts, p = 0.11 (hosting CPU matters).
