@@ -136,6 +136,13 @@ type Params struct {
 	// WSelfReliance (v2 eval): penalty when the room we can reach, not counting
 	// cells of our own body that only free as the tail moves, is below our length.
 	WSelfReliance float64 `json:"wSelfReliance"`
+	// WTailUnreachable: penalty when our reachable room is tight (< TailUnreachableSpace * L)
+	// and our head cannot reach our own tail (dead-end pocket / self-coiling loop).
+	WTailUnreachable     float64 `json:"wTailUnreachable"`
+	TailUnreachableSpace float64 `json:"tailUnreachableSpace"`
+	// RobustSkipScale: skip articulation analysis if reach >= RobustSkipScale * L and SafeExits >= RobustMinExits (0 = never skip)
+	RobustSkipScale float64 `json:"robustSkipScale"`
+	RobustMinExits  int     `json:"robustMinExits"`
 	// SearchEndgame (P4): when no opponent can ever reach our region, keep only
 	// the root moves a survival search proves last longest, up to EndgameHorizon
 	// turns, spending at most EndgameNodes resolutions.
@@ -221,6 +228,10 @@ func Defaults() Params {
 		PredictHungry:           35,
 		FoodDeficitScale:        1,
 		SpaceFactor:             1,
+		WTailUnreachable:        0,
+		TailUnreachableSpace:    2,
+		RobustSkipScale:         0,
+		RobustMinExits:          2,
 		SearchEndgame:           false,
 		EndgameHorizon:          48,
 		EndgameNodes:            30000,

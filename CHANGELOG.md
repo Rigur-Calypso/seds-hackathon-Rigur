@@ -171,3 +171,19 @@ requests; `minBudgetMs` 8. Result after deploy: DEVLOG §11.10.
 - REJECTED `wSelfReliance` 1.0 / 2.5: −0.25 / −0.15 pts in 4-snake self-play.
 - NOT MEASURED `spaceSafe` (screens stopped). Live play unchanged: every new option ships off.
 - Finding: most "self-collision" losses in self-play are lost space fights (DEVLOG §11.11).
+
+## improve-014 — tail-reachability loop detection, adaptive articulation skipping, and dormant flag audit
+
+- Measured dormant flags:
+  - REJECTED `searchRationalOpp`: −0.70 pts in 4-snake self-play (win rate 34 % → 20 %, self-collisions 14 → 24); line 334 pruned moves based on current head rather than destination, creating false security.
+  - REJECTED `spaceSafe`: −0.84 pts in 4-snake self-play (win rate 34 % → 22 %); discounting all contested space doubled starvation deaths (2 → 4).
+  - MEASURED `cand_duel_aggressive` (`wKill: 1.2`, `wOppTrapped: 0.8`): identical moves in 1v1 duels because opponent death triggers terminal `winValue` cutoff in minimax, bypassing heuristic leaf evaluation.
+- Implemented **Adaptive Articulation Skipping** (`robustSkipScale`, `robustMinExits`):
+  - Skips Tarjan articulation DFS when reach ≥ 2.0 × length and safe exits ≥ 2 (cuts cannot pinch robust space below trapped threshold).
+  - Benchmark: `BenchmarkFill4` drops 2 436 → 1 553 ns (−36.2 %); `BenchmarkSearch4Snakes` drops 19.03 → 15.88 ms per 10k nodes (+20 % throughput).
+  - 11×11 duels: p50 latency 7.2 → 5.4 ms (−24.5 %), p99 latency 14.3 → 9.0 ms (−37.1 %); timeouts drop 3 → 0 under load.
+- Implemented **Tail-Reachability Loop Detection** (`wTailUnreachable`, `tailUnreachableSpace`):
+  - Tracks `CanReachTail [MaxSnakes]bool` in `sim.Result`; unit test `TestCanReachTail` added.
+  - Penalizes moves entering dead-end cul-de-sacs where the snake's head cannot reach its own vacating tail.
+  - 100-game duel benchmark: self-collision deaths dropped 39 → 36, games survived increased 49 → 50.
+- All new parameters ship behind flags defaulting to 0, preserving existing baseline behavior.

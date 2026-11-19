@@ -23,6 +23,7 @@ type Result struct {
 	SafeExits        [MaxSnakes]int
 	ExitsUncontested [MaxSnakes]int
 	Trapped          [MaxSnakes]bool
+	CanReachTail     [MaxSnakes]bool
 	Robust           int // focus only: reach minus the largest sealable pocket
 	CutCells         int
 }
@@ -84,6 +85,12 @@ func (f *Fill) reset(n int) {
 //
 // With cuts, the focus snake also gets articulation-point analysis (Robust).
 func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
+	return f.ComputeThreshold(st, focus, cuts, 0, 0)
+}
+
+// ComputeThreshold is Compute where articulation-point analysis is conditionally
+// skipped if robustScale > 0, reach >= robustScale * length, and SafeExits >= minExits.
+func (f *Fill) ComputeThreshold(st *State, focus int, cuts bool, robustScale float64, minExits int) Result {
 	var r Result
 	for i := range r.FoodDist {
 		r.FoodDist[i], r.FoodHealth[i] = -1, -1
@@ -270,10 +277,17 @@ func (f *Fill) Compute(st *State, focus int, cuts bool) Result {
 			}
 		}
 		r.Trapped[j] = r.Reach(j) < int(lens[j])
+		r.CanReachTail[j] = (f.mask[sn.Tail()] & bit) != 0
 	}
 
 	if cuts && focus >= 0 && focus < ns && st.S[focus].Alive {
-		r.Robust, r.CutCells = f.articulation(st, focus, r.Reach(focus))
+		reach := r.Reach(focus)
+		skip := robustScale > 0 && float64(reach) >= robustScale*float64(lens[focus]) && r.SafeExits[focus] >= minExits
+		if skip {
+			r.Robust = reach
+		} else {
+			r.Robust, r.CutCells = f.articulation(st, focus, reach)
+		}
 	} else {
 		r.Robust = r.Reach(0)
 	}

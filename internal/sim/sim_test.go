@@ -233,6 +233,7 @@ func TestFillMatchesVoronoi(t *testing.T) {
 				Trapped: want.Trapped, Robust: want.Robust, CutCells: want.CutCells}
 			w.FoodHealth = got.FoodHealth   // v2-only field, tested in TestFoodHealth
 			w.OwnReleased = got.OwnReleased // v2-only field, tested in TestOwnReleased
+			w.CanReachTail = got.CanReachTail // v2-only field, tested in TestCanReachTail
 			if got != w {
 				t.Fatalf("%s seed %d:\n sim     %+v\n voronoi %+v", v.name, seed, got, w)
 			}
@@ -300,6 +301,21 @@ func TestOwnReleased(t *testing.T) {
 	}
 }
 
+func TestCanReachTail(t *testing.T) {
+	var f Fill
+	open, _ := board.FromAPI(fixture.MustState("you 100 5,5 5,4 5,3\nsnake far 100 0,10 1,10 2,10"))
+	st, _ := New(open, NewGame(open, ShrinkKeep))
+	if r := f.Compute(st, 0, false); !r.CanReachTail[0] {
+		t.Fatal("open snake must reach its tail")
+	}
+
+	coiled, _ := board.FromAPI(fixture.MustState("size 3 3\nyou 100 1,1 2,1 2,2 1,2 0,2 0,1 0,0 1,0"))
+	stCoiled, _ := New(coiled, NewGame(coiled, ShrinkKeep))
+	if r := f.Compute(stCoiled, 0, false); !r.CanReachTail[0] {
+		t.Fatal("coiled snake following its tail must reach its tail")
+	}
+}
+
 func TestNewRejectsWhatDoesNotFit(t *testing.T) {
 	bs, _ := board.FromAPI(fixture.MustState("you 100 5,5 5,4 5,3\nsnake a 100 1,1 1,2 1,3"))
 	if _, ok := New(bs, NewGame(bs, ShrinkKeep)); !ok {
@@ -345,6 +361,14 @@ func BenchmarkFill4(b *testing.B) {
 	var f Fill
 	for i := 0; i < b.N; i++ {
 		f.Compute(st, 0, true)
+	}
+}
+
+func BenchmarkFill4NoCuts(b *testing.B) {
+	st := benchState(b, bench4)
+	var f Fill
+	for i := 0; i < b.N; i++ {
+		f.Compute(st, 0, false)
 	}
 }
 

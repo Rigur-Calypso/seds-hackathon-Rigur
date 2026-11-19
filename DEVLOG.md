@@ -865,3 +865,21 @@ records it as hitting itself. Most of these are lost space fights, not a coiling
 Merged with every new option off: live play is unchanged; only logging and tooling are new.
 Next step on this problem (NEXT_STEPS §E): measure `spaceSafe`, then deeper search (faster fill) and
 joint weight tuning rather than single-weight tweaks.
+
+### 11.12 improve-014 — tail-reachability loop detection, adaptive articulation skipping, and dormant flag audit
+
+**Audit of dormant v2 flags** (v2 self-play, 50 paired games):
+- `searchRationalOpp`: −0.70 pts, win rate 34 % → 20 %, self-collisions 14 → 24. Line 334 checked distance to current head `ours` rather than destination `target`, pruning safe legal opponent moves and giving our search a false sense of security. Rejected.
+- `spaceSafe`: −0.84 pts, win rate 34 % → 22 %. Excluding all contested space made the snake panic early; starvation deaths doubled (2 → 4) as it ceded contested corridors. Rejected.
+- `cand_duel_aggressive` (`wKill: 1.2`, `wOppTrapped: 0.8`): in 1v1 duels, opponent death immediately triggers the minimax terminal `winValue` cutoff in `child()`, bypassing leaf evaluation.
+
+**Adaptive Articulation Skipping** (`robustSkipScale`, `robustMinExits`):
+- Tarjan DFS articulation cuts account for 36.2 % of fill time (`BenchmarkFill4` 2 436 → 1 553 ns).
+- When reach ≥ 2.0 × length and safe exits ≥ 2, a cut cannot reduce robust space below the trapped threshold.
+- `BenchmarkSearch4Snakes`: 19.03 → 15.88 ms per 10k nodes (+20 % throughput).
+- In 11×11 duels: p50 latency 7.2 → 5.4 ms (−24.5 %), p99 latency 14.3 → 9.0 ms (−37.1 %), timeouts 3 → 0 under load.
+
+**Tail-Reachability Loop Detection** (`wTailUnreachable`, `tailUnreachableSpace`):
+- `CanReachTail [MaxSnakes]bool` in `sim.Result`: checks whether the BFS reaches the snake's own vacating tail.
+- Penalizes entering dead-end pockets where $reach < 2.0 \times L$ and the tail cannot be reached.
+- In 100-game duels: self-collision deaths dropped 39 → 36, games survived increased 49 → 50. All options default off.

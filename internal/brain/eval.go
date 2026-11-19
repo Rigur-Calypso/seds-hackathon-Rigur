@@ -41,7 +41,7 @@ func (se *Searcher) winValue(ply int) float64 {
 }
 
 func (se *Searcher) leaf() float64 {
-	r := se.fill.Compute(se.st, 0, se.p.WRobust != 0)
+	r := se.fill.ComputeThreshold(se.st, 0, se.p.WRobust != 0, se.p.RobustSkipScale, se.p.RobustMinExits)
 	return se.heuristic(&r)
 }
 
@@ -107,6 +107,12 @@ func (se *Searcher) heuristic(v *sim.Result) float64 {
 	if p.WSelfReliance != 0 {
 		if fresh := float64(v.Reach(0) - v.OwnReleased[0]); fresh < float64(L) {
 			h -= p.WSelfReliance * (1 - fresh/float64(L))
+		}
+	}
+	if p.WTailUnreachable != 0 && !g.Constrictor && !v.CanReachTail[0] {
+		limit := float64(L) * p.TailUnreachableSpace
+		if reach < limit {
+			h -= p.WTailUnreachable * (1 - reach/limit)
 		}
 	}
 	exits := v.SafeExits[0]

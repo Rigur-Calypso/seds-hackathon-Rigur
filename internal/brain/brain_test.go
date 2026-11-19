@@ -209,6 +209,21 @@ food 3,8 6,6 10,0`)
 	}
 }
 
+func BenchmarkSearch4SnakesFastCuts(b *testing.B) {
+	s := state(b, `you 90 5,5 5,4 5,3 4,3 3,3 3,4
+snake a 80 1,1 1,2 1,3 1,4 2,4
+snake b 70 7,7 7,8 7,9 8,9 9,9
+snake c 60 7,3 8,3 8,4 8,5
+food 3,8 6,6 10,0`)
+	p := params()
+	p.SearchNodes = 10000
+	p.RobustSkipScale = 2.0
+	p.RobustMinExits = 2
+	for i := 0; i < b.N; i++ {
+		search(b, s, p)
+	}
+}
+
 func BenchmarkSearchDuel19(b *testing.B) {
 	s := state(b, `rules royale
 size 19 19
